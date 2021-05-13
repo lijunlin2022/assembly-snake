@@ -248,11 +248,13 @@ void EndGame() {
 
 		// 延时 2s
 		push 2000
-		call dword ptr ds:[Sleep]
+		call Sleep
+		add esp, 4
 
 		// 退出
 		push 0
-		call dword ptr ds:[ExitProcess]
+		call ExitProcess
+		add esp, 4
 	}
 }
 
@@ -270,53 +272,39 @@ void InitGameMapData() {
 		call memset
 		add esp, 12
 
-		// 设置墙壁
-		mov dword ptr ds : [i] , 0
-		jmp set_wall_cmp
+		/* 使用循环设置地图的边界 */
+	    mov dword ptr ds : [i] , 0
+		mov ecx, 20;
 
-	set_wall_add :
-		mov eax, dword ptr ds : [i]
-		inc eax
-		mov dword ptr ds : [i] , eax
-
-	set_wall_cmp :
-		mov eax, dword ptr ds : [i]
-		cmp eax, 19
-		jg set_wall_end
-		
-		// g_MapDataArr[0][cnt] 上方向
+	
+	set_wall:
+		// 顶墙
 		lea eax, dword ptr ds : [g_MapDataArr]
-		mov ecx, dword ptr ds : [i]
-		mov byte ptr ds : [eax + ecx] , 0xB
-
-		// g_MapDataArr[19][cnt] 下方向
+		mov ebx, dword ptr ds : [i]
+		mov byte ptr ds : [eax + ebx] , 0xB
+		// 底墙
 		lea eax, dword ptr ds : [g_MapDataArr]
-		mov ecx, 19
-		imul ecx, ecx, 20
-		add eax, ecx
-
-		mov ecx, dword ptr ds : [i]
-		mov byte ptr ds : [eax + ecx] , 0xB
-
-		// g_MapDataArr[0][cnt] 左方向
+		mov ebx, 19
+		imul ebx, ebx, 20
+		add eax, ebx
+		mov ebx, dword ptr ds : [i]
+		mov byte ptr ds : [eax + ebx] , 0xB
+		// 左墙
 		lea eax, dword ptr ds : [g_MapDataArr]
-		mov ecx, dword ptr ds : [i]
-		imul ecx, ecx, 20
-		mov byte ptr ds : [eax + ecx] , 0xB
-
-		// 右方向
-		lea eax, dword ptr ds : [g_MapDataArr]
-		mov ecx, dword ptr ds : [i]
-		imul ecx, ecx, 20
-		// mov dword ptr ds:[eax + ecx], 0xB
-		add eax, ecx
-		add eax, 19
-		mov byte ptr ds : [eax] , 0xB
-
-		jmp set_wall_add
-
-	set_wall_end :
-		nop
+		mov ebx, dword ptr ds : [i]
+		imul ebx, ebx, 20
+		mov byte ptr ds : [eax + ebx] , 0xB
+		// 右墙
+		lea eax, dword ptr ds:[g_MapDataArr]
+		mov ebx, dword ptr ds : [i]
+		imul ebx, ebx, 20
+		add ebx, 19
+		mov byte ptr ds : [eax + ebx] , 0xB
+		// i 自减
+		mov ebx, dword ptr ds : [i]
+		inc ebx
+		mov dword ptr ds : [i] , ebx
+		loop set_wall
 
 		// 打印提示信息
 		mov eax, dword ptr ds:[format1]
@@ -482,8 +470,8 @@ void DrawMap() {
 
 	int i;
 	int j;
-	const char *szWall = "|";
-	const char* szFood = "#";
+	const char *szWall = "-";
+	const char* szFood = "*";
 	const char* szNone = " ";
 	const char* szChangeLine = "\n";
 	const char* format1 = "%s";
