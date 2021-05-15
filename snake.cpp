@@ -46,12 +46,12 @@ void DrawSnake();
 void JudgeMoveFlag();
 // 移动蛇
 void MoveSnake();
-// 死亡
-void Death();	
-// 得分
-void GetScore();
+// 碰撞检测
+void JudgeDetection();
 // 增加蛇的长度
 void AddSnakeLength();
+// 死亡
+void Death();
 
 void ClearScreen() {
 	const char* szClearScreen = "cls";
@@ -145,7 +145,8 @@ void ShowMainMenu() {
 		call DrawMap									// 画地图、食物
 		call DrawSnake									// 画蛇
 		call MoveSnake									// 移动蛇
-		
+		call JudgeDetection							// 碰撞检测
+
 		push 300
 		call dword ptr ds:[Sleep]
 		mov eax, dword ptr ds:[g_nIsDead]
@@ -216,7 +217,7 @@ void InitGameMapData() {
 
 		// 使用循环设置地图边界 0xB
 	    mov dword ptr ds : [i] , 0
-		mov ecx, 20;
+		mov ecx, 21;
 
 	set_wall:
 		// 顶墙
@@ -706,12 +707,57 @@ void MoveSnake() {
 	}
 }
 
-void JudgeMoveState() {
+void JudgeDetection() {
+	int x;
+	int y;
+	__asm {
+		// 取出蛇头的 xy 坐标
+		lea eax, dword ptr ds:[g_sSnakePosArray]
+		mov ecx, dword ptr ds:[eax]	// x 的坐标
+		mov edx, dword ptr ds:[eax + 4]	// y 的坐标
+		mov dword ptr ds:[x], ecx
+		mov dword ptr ds:[y], edx
 
+		// 是否撞墙
+		lea eax, dword ptr ds:[g_MapDataArr]
+		imul ecx, ecx, 20
+		add eax, ecx
+		add eax, edx
+		mov cl, byte ptr ds:[eax]	// 从二维数组里面取指定下标值
+		cmp cl, 0xB	// 判断是否撞墙
+		je snake_dead
+
+		// 是否得分
+		cmp cl, 0xC	// 判断是否吃到食物
+		je snake_get_score
+
+		// 啥都没做
+		jmp snake_get_score_end
+
+	snake_dead:
+		call Death
+
+	snake_get_score:
+		mov eax, dword ptr ds:[g_nSnakeLength]
+		inc eax
+		mov dword ptr ds:[g_nSnakeLength], eax
+		call AddSnakeLength
+
+	snake_get_score_end:
+		nop
+	}
 }
 
 void Death() {
-
+	const char *format1 = "你死了，游戏结束";
+	__asm {
+		call ClearScreen
+		mov eax, dword ptr ds:[format1]
+		push eax
+		call printf
+		add eax, 4
+		call EndGame
+	}
 }
 
 void GetScore() {
@@ -719,7 +765,57 @@ void GetScore() {
 }
 
 void AddSnakeLength() {
-	
+	__asm {
+		lea eax, dword ptr ds:[g_sSnakePosArray]
+		mov ecx, dword ptr ds:[g_nSnakeLength]
+		dec ecx
+		imul ecx, ecx, 8
+		add eax, ecx
+		mov ecx, dword ptr ds:[eax]	// 取蛇尾的 x
+		mov edx, dword ptr ds:[eax + 4]	// 取蛇尾的 y
+		// 进行判断
+		push ebx
+		mov ebx, dword ptr ds:[g_nMoveFlag]
+		cmp ebx, 1
+		je move_up
+		cmp ebx, 2
+		je move_down
+		cmp ebx, 3
+		je move_left
+		cmp ebx, 4
+		je move_right
+	// 向上移动
+	move_up:
+		inc ecx
+		add eax, 8
+		mov dword ptr ds:[eax], ecx
+		mov dword ptr ds:[eax + 4], edx
+		jmp snake_add_length_end
+	// 向下移动
+	move_down:
+		dec ecx
+		add eax, 8
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp snake_add_length_end
+	// 向左移动
+	move_left:
+		inc edx
+		add eax, 8
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp snake_add_length_end
+	// 向右移动
+	move_right:
+		dec edx
+		add eax, 8
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp snake_add_length_end
+	snake_add_length_end:
+		pop ebx
+		nop
+	}
 }
 
 void main() {
