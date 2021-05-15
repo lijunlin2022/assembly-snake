@@ -3,35 +3,55 @@
 #include <windows.h>
 #include <time.h>
 
-char g_MapDataArr[20][20];		// 地图数组
+// 地图数组
+char g_MapDataArr[20][20];
 
-int g_nMoveFlag;						// 移动方向
+// 移动方向
+int g_nMoveFlag;
 
-int g_nIsDead;							// 撞墙标记, 0 表示未撞墙，1 表示撞墙
+// 撞墙标记, 0 表示未撞墙，1 表示撞墙
+int g_nIsDead;
 
-struct SnakePos {						// 蛇的数组
+// 蛇的数组
+struct SnakePos {
 	int x;
 	int y;
 } g_sSnakePosArray[100];
 
-int g_nSnakeLength;					// 蛇的长度
+// 蛇的长度
+int g_nSnakeLength;
 
-void ClearScreen();					// 工具函数, 用于清屏
-void gotoxy(int pos);					// 工具函数, 用于在指定位置打印
+// 工具函数, 用于清屏
+void ClearScreen();
+// 工具函数, 用于在指定位置打印
+void gotoxy(int pos);
 
-void ShowMainMenu();				// 显示主菜单
-void GetUserInput(int nSelect);	// 获取用户输入
-void EndGame();						// 结束游戏
-void InitGameMapData();			// 初始化地图数据
-void RandSetFoodPosition();	// 随机设置食物的位置
-void RandSetSnakePosition();	// 随机设置蛇的位置
-void DrawMap();						// 画地图
-void DrawSnake();					// 画蛇
-void MoveSnake();					// 移动蛇
-void JudgeMoveFlag();				// 判断此次移动状态
-void Death();								// 死亡
-void GetScore();						// 得分
-void AddSnakeLength();			// 增加蛇的长度
+// 显示主菜单
+void ShowMainMenu();	
+// 获取用户输入
+void GetUserInput(int nSelect);
+// 结束游戏
+void EndGame();
+// 初始化地图数据
+void InitGameMapData();
+// 随机设置食物的位置
+void RandSetFoodPosition();
+// 随机设置蛇的位置
+void RandSetSnakePosition();
+// 画地图
+void DrawMap();
+// 画蛇
+void DrawSnake();
+// 判断此次移动状态
+void JudgeMoveFlag();
+// 移动蛇
+void MoveSnake();
+// 死亡
+void Death();	
+// 得分
+void GetScore();
+// 增加蛇的长度
+void AddSnakeLength();
 
 void ClearScreen() {
 	const char* szClearScreen = "cls";
@@ -124,6 +144,10 @@ void ShowMainMenu() {
 	go_on_game:
 		call DrawMap									// 画地图、食物
 		call DrawSnake									// 画蛇
+		call MoveSnake									// 移动蛇
+		
+		push 300
+		call dword ptr ds:[Sleep]
 		mov eax, dword ptr ds:[g_nIsDead]
 		cmp eax, 0										// 判断有没有撞墙死亡，未死亡则重新绘制地图，死亡则回到主菜单
 		je go_on_game
@@ -480,17 +504,17 @@ void DrawMap() {
 
 void DrawSnake() {
 	int i;
-	const char* format = "*";
+	const char *format = "M";
 	__asm {
 		mov dword ptr ds:[i], 0
 		jmp print_snake_cmp
+
 	print_snake_inc:
 		mov eax, dword ptr ds:[i]
 		inc eax
 		mov dword ptr ds:[i], eax
 	print_snake_cmp:
 		mov eax, dword ptr ds:[i]
-		inc eax
 		mov ecx, dword ptr ds:[g_nSnakeLength]
 		cmp eax, ecx													// 如果画好的长度等于储存的贪吃蛇的长度, 则画图结束
 		jge print_snake_end
@@ -554,6 +578,7 @@ void JudgeMoveFlag() {
 		and ax, 0xff00
 		cmp ax, 0
 		jne d_press
+		jmp back_while
 		
 	// 如果 w 键被按下
 	w_press :
@@ -595,7 +620,90 @@ void JudgeMoveFlag() {
 }
 
 void MoveSnake() {
+	int i;
+	__asm {
+		// 给循环变量赋值
+		mov eax, dword ptr ds:[g_nSnakeLength]
+		sub eax, 2
+		mov dword ptr ds:[i], eax
+		jmp snake_move_cmp
 
+	snake_move_dec:
+		mov eax, dword ptr ds:[i]
+		dec eax
+		mov dword ptr ds:[i], eax
+
+	snake_move_cmp:
+		mov eax, dword ptr ds:[i]
+		cmp eax, 0
+		jl snake_move_end
+		
+		lea eax, dword ptr ds:[g_sSnakePosArray]
+		mov ecx, dword ptr ds:[i]
+		imul ecx, ecx, 8
+		add eax, ecx
+		mov ecx, dword ptr ds:[eax]		// x
+		mov edx, dword ptr ds:[eax + 4]	// y
+
+		// 放到 i + 1 的下标中
+		add eax, 8
+		mov dword ptr ds:[eax], ecx
+		mov dword ptr ds:[eax + 4], edx
+		jmp snake_move_dec
+
+	snake_move_end:
+		
+		// 确定蛇头位置
+		mov eax, dword ptr ds:[g_nMoveFlag]
+		cmp eax, 1
+		je move_up
+		cmp eax, 2
+		je move_down
+		cmp eax, 3
+		je move_left
+		cmp eax, 4
+		je move_right
+
+	// 向上移动
+	move_up:
+		lea eax, dword ptr ds:[g_sSnakePosArray]
+		mov ecx, dword ptr ds:[eax]		// x
+		mov edx, dword ptr ds:[eax + 4]	// y
+		dec ecx
+		mov dword ptr ds:[eax], ecx
+		mov dword ptr ds:[eax + 4], edx
+		jmp 	snake_move_fun_end
+	// 向下移动
+	move_down:
+		lea eax, dword ptr ds : [g_sSnakePosArray]
+		mov ecx, dword ptr ds : [eax]		// x
+		mov edx, dword ptr ds : [eax + 4]	// y
+		inc ecx
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp 	snake_move_fun_end
+	// 向左移动
+	move_left:
+		lea eax, dword ptr ds : [g_sSnakePosArray]
+		mov ecx, dword ptr ds : [eax]		// x
+		mov edx, dword ptr ds : [eax + 4]	// y
+		dec edx
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp 	snake_move_fun_end
+	// 向右移动
+	move_right:
+		lea eax, dword ptr ds : [g_sSnakePosArray]
+		mov ecx, dword ptr ds : [eax]		// x
+		mov edx, dword ptr ds : [eax + 4]	// y
+		inc edx
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp 	snake_move_fun_end
+
+	snake_move_fun_end :
+		nop
+	}
 }
 
 void JudgeMoveState() {
@@ -615,6 +723,17 @@ void AddSnakeLength() {
 }
 
 void main() {
+
+	__asm {
+		push 0
+		push 0
+		push 0
+		lea eax, dword ptr ds:[JudgeMoveFlag]
+		push eax
+		push 0
+		push 0
+		call dword ptr ds:[CreateThread]
+	}
 	__asm {
 		call ShowMainMenu
 	}
