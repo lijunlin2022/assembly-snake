@@ -19,17 +19,21 @@ int globalSnakeLen;
 // 4 代表向右移动
 int globalMovementDirection;
 
-// 死亡标记
-// 0 代表未死亡
-// 1 代表死亡
-int globalIsDead;
+int foodX;
+int foodY;
 
+void enterGame();
 void showMainMenu();
-void GetUserInput(int nSelect);
-void EndGame();
-void InitGameMapData();
-void RandSetFoodPosition();
-void RandSetSnakePosition();
+void getUserSelection(int selection);
+void handleIllegalSelection();
+void startGame();
+void endGame();
+void initMapData();
+void setWall();
+void setFoodPosition();
+void generateRandomFood();
+void setSnakePosition();
+void generateRandomSnakeHead();
 void DrawMap();
 void DrawSnake();
 void JudgeMoveFlag();
@@ -42,6 +46,9 @@ void gotoxyUtil(int pos);
 
 void main() {
 	__asm {
+		// 第一个线程
+		// 获取键盘输入
+		// 操控蛇的移动
 		push 0
 		push 0
 		push 0
@@ -50,125 +57,136 @@ void main() {
 		push 0
 		push 0
 		call dword ptr ds : [CreateThread]
+
+		// 第二个线程
+		// 打印游戏画面
+		call enterGame
 	}
+}
+
+void enterGame() {
+	int selection;
 	__asm {
+	game_begin:
 		call showMainMenu
+
+		// 获取用户选择
+		lea eax, dword ptr ds : [selection]
+		push eax
+		call getUserSelection
+		add esp, 4
+
+		// 判断用户的选择
+		mov eax, dword ptr ds : [selection]
+		cmp eax, 1
+		je start_game
+		cmp eax, 2
+		je end_game
+
+		// 处理非法选择
+		call handleIllegalSelection
+		jmp game_begin
+
+	start_game :
+		call startGame
+
+	end_game :
+		call endGame
 	}
 }
 
 void showMainMenu() {
-	int nSelect;
-	const char *format1 = "-------------------------------------------------------------------\n";
-	const char* format2 = "author: LiJunLin\n";
-	const char* format3 = "1 开始游戏 2 结束游戏\n";
-	const char* format4 = "---您输入的编号不支持, 请在 2 秒之后重新输入--\n";
-
+	const char *dividingLine = "-------------------------------------------------------------------\n";
+	const char *authorInfo = "author: LiJunLin\n";
+	const char *operationGuide = "按 1 开始游戏\n按 2 结束游戏\n按 W 向上移动\n按 S 向下移动\n按 A 向左移动\n按 D 向右移动\n";
 	__asm {
-	show_menu_begin:
-
 		// 打印分割字符
-		mov eax, dword ptr ds:[format1]
+		mov eax, dword ptr ds:[dividingLine]
 		push eax
 		call printf
 		add esp, 4
 
-		// 打印水印
-		mov eax, dword ptr ds:[format2]
+		// 打印作者信息
+		mov eax, dword ptr ds:[authorInfo]
 		push eax
 		call printf
 		add esp, 4
 
 		// 打印提示信息
-		mov eax, dword ptr ds:[format3]
+		mov eax, dword ptr ds:[operationGuide]
 		push eax
 		call printf
 		add esp, 4
 
 		// 打印分割字符
-		mov eax, dword ptr ds:[format1]
+		mov eax, dword ptr ds:[dividingLine]
 		push eax
 		call printf
 		add esp, 4
-
-		// 获取用户输入
-		lea eax, dword ptr ds:[nSelect]
-		push eax
-		call GetUserInput
-		add esp, 4
-
-		// 判断并且分发
-		mov eax, dword ptr ds:[nSelect]
-		cmp eax, 1
-		je dispatch_begin_game
-		cmp eax, 2
-		je dispatch_end_game
-
-		// 输入不被支持
-		mov eax, dword ptr ds:[format4]
-		push eax
-		call printf
-		add esp, 4
-
-		// 延时函数
-		push 2000
-		call dword ptr ds:[Sleep]
-		
-		// 清屏
-		call clearScreenUtil
-		jmp show_menu_begin
-	
-	dispatch_begin_game:
-		mov dword ptr ds:[globalIsDead], 0		// 游戏开始， 0 表示未死亡
-		call InitGameMapData						// 初始化地图数据
-		call RandSetFoodPosition					// 随机设置食物位置
-		call RandSetSnakePosition				// 随机设置蛇的位置
-	
-	go_on_game:
-		call DrawMap									// 画地图、食物
-		call DrawSnake									// 画蛇
-		call MoveSnake									// 移动蛇
-		call JudgeDetection							// 碰撞检测
-
-		push 300
-		call dword ptr ds:[Sleep]
-		mov eax, dword ptr ds:[globalIsDead]
-		cmp eax, 0										// 判断有没有撞墙死亡，未死亡则重新绘制地图，死亡则回到主菜单
-		je go_on_game
-
-		jmp show_menu_begin						// 回到主菜单
-	    nop
-
-	dispatch_end_game:
-		call EndGame
-	    nop
 	}
 }
 
-void GetUserInput(int nSelect) {
-	const char *format1 = "请输入你要选择的编号:\n";
-	const char* format2 = "%d";
+void getUserSelection(int selection) {
+	const char *tip = "请输入 1 开始游戏，或者 2 退出游戏:\n";
+	const char *paramater = "%d";
 	__asm {
 		// 显示提示信息
-		mov eax, dword ptr ds:[format1]
+		mov eax, dword ptr ds:[tip]
 		push eax
 		call printf
 		add esp, 4
 
 		// 获取输入
-		mov eax, dword ptr ds:[nSelect]
+		mov eax, dword ptr ds:[selection]
 		push eax
-		mov ecx, dword ptr ds:[format2]
+		mov ecx, dword ptr ds:[paramater]
 		push ecx
 		call scanf
 		add esp, 8
 	}
 }
 
-void EndGame() {
-	const char* format1 = "程序在两秒钟之后即将退出......";
+void handleIllegalSelection() {
+	const char* errMsg = "输入的编号不正确，请在 2s 之后重新输入\n";
+	__asm {
+		mov eax, dword ptr ds : [errMsg]
+		push eax
+		call printf
+		add esp, 4
+
+		// 延时函数
+		push 2000
+		call dword ptr ds : [Sleep]
+
+		// 清屏
+		call clearScreenUtil
+	}
+}
+
+void startGame() {
+	__asm {
+		call initMapData
+		call setWall
+		call setFoodPosition
+		call setSnakePosition
+
+	go_on_game :
+		call DrawMap
+		call DrawSnake
+		call MoveSnake	
+		call JudgeDetection
+
+		push 300
+		call dword ptr ds : [Sleep]
+		je go_on_game
+	}
+}
+
+void endGame() {
+	const char *tip = "程序在两秒钟之后即将退出......";
 	__asm {
 		// 打印提示信息
-		mov eax, dword ptr ds : [format1]
+		mov eax, dword ptr ds : [tip]
 		push eax
 		call printf
 		add esp, 4
@@ -185,9 +203,7 @@ void EndGame() {
 	}
 }
 
-void InitGameMapData() {
-	const char* format1 = "内存已经清理完毕, 即将开始游戏......\n";
-	int i;
+void initMapData() {
 	__asm {
 		// 清零 g_MapDataArr
 		push 400
@@ -197,16 +213,20 @@ void InitGameMapData() {
 		call memset
 		add esp, 12
 
-		// 使用循环设置地图边界 0xB
-	    mov dword ptr ds : [i] , 0
-		mov ecx, 21;
+		call setWall
+	}
+}
 
+void setWall() {
+	int i;
+	__asm {
+		mov dword ptr ds : [i] , 0
+		mov ecx, 20;
 	set_wall:
 		// 顶墙
 		lea eax, dword ptr ds : [globalMapArr]
 		mov ebx, dword ptr ds : [i]
 		mov byte ptr ds : [eax + ebx] , 0xB
-
 		// 底墙
 		lea eax, dword ptr ds : [globalMapArr]
 		mov ebx, 19
@@ -214,91 +234,152 @@ void InitGameMapData() {
 		add eax, ebx
 		mov ebx, dword ptr ds : [i]
 		mov byte ptr ds : [eax + ebx] , 0xB
-
 		// 左墙
 		lea eax, dword ptr ds : [globalMapArr]
 		mov ebx, dword ptr ds : [i]
 		imul ebx, ebx, 20
 		mov byte ptr ds : [eax + ebx] , 0xB
-
 		// 右墙
-		lea eax, dword ptr ds:[globalMapArr]
+		lea eax, dword ptr ds : [globalMapArr]
 		mov ebx, dword ptr ds : [i]
 		imul ebx, ebx, 20
 		add ebx, 19
 		mov byte ptr ds : [eax + ebx] , 0xB
-
 		// i 自减
 		mov ebx, dword ptr ds : [i]
 		inc ebx
 		mov dword ptr ds : [i] , ebx
 		loop set_wall
-
-		// 打印提示信息
-		mov eax, dword ptr ds:[format1]
-		push eax
-		call printf
-		add esp, 4
 	}
 }
 
-void RandSetFoodPosition() {
-	const char* format1 = "正在随机生成食物的位置......\n";
-	int x;
-	int y;
+void setFoodPosition() {
 	__asm {
-		// 打印提示信息
-		mov eax, dword ptr ds : [format1]
-		push eax
-		call printf
-		add esp, 4
+    set_food_pos :
+		call generateRandomFood
 
-	rand_set_food_pos :
+		// 判断食物是不是和墙壁重叠
+		lea eax, dword ptr ds : [globalMapArr]
+		mov ecx, dword ptr ds : [foodX]
+		imul ecx, ecx, 20
+		add eax, ecx
+		mov edx, dword ptr ds : [foodY]
+		add eax, edx
+
+		mov cl, byte ptr ds : [eax]
+		cmp cl, 0xB
+		je set_food_pos	// 如果和墙重叠, 则回到开始位置, 重新生成随机数
+		mov byte ptr ds : [eax] , 0xC		// 如果没有墙, 则设置食物
+	}
+}
+
+void generateRandomFood() {
+	__asm {
 		// 获取时间	
 		push 0
 		call time
 		add esp, 4
-
 		// 设置随机数种子
 		push eax
 		call srand
 		add esp, 4
-
 		// 获取 x 坐标值
 		call rand
 		cdq
 		mov ecx, 20
 		idiv ecx
-		mov dword ptr ds : [x] , edx
-
+		mov dword ptr ds : [foodX] , edx
 		// 获取 y 坐标值
 		call rand
 		cdq
 		mov ecx, 20
 		idiv ecx
-		mov dword ptr ds : [y] , edx
-
-		// 判断食物是不是和墙壁重叠
-		lea eax, dword ptr ds : [globalMapArr]
-		mov ecx, dword ptr ds : [x]
-		imul ecx, ecx, 20
-		add eax, ecx
-		mov edx, dword ptr ds : [y]
-		add eax, edx
-
-		mov cl, byte ptr ds : [eax]
-		cmp cl, 0xB
-		je rand_set_food_pos				// 如果和墙重叠, 则回到开始位置, 重新生成随机数
-		mov byte ptr ds : [eax] , 0xC		// 如果没有墙, 则设置食物
+		mov dword ptr ds : [foodY] , edx
 	}
 }
 
-void RandSetSnakePosition() {
+//void setSnakePosition() {
+//	int x;
+//	int y;
+//	__asm {
+//	set_snake_pos:
+//		call generateRandomSnakeHead
+//
+//		// 从蛇头数组中读取
+//		lea eax, dword ptr ds : [globalSnakeArr]
+//		mov ecx, dword ptr ds : [globalSnakeLen]
+//		imul ecx, ecx, 8
+//		add eax, ecx
+//
+//		mov ecx, dword ptr ds : [eax]
+//		mov dword ptr ds : [x], ecx
+//		
+//		mov ecx, dword ptr ds : [eax + 4] 
+//		mov dword ptr ds : [y], ecx
+//
+//		lea eax, dword ptr ds : [globalMapArr]
+//		mov ecx, dword ptr ds : [x]
+//		imul ecx, ecx, 20
+//		add eax, ecx
+//		mov edx, dword ptr ds : [y]
+//		add eax, edx
+//		
+//		mov cl, byte ptr ds : [eax]
+//		cmp cl, 0xB
+//		je set_snake_pos	// 如果和墙重叠, 则回到开始位置, 重新生成蛇头
+//
+//		// 蛇头的长度为1
+//		mov ecx, dword ptr ds : [globalSnakeLen]
+//		imul ecx, ecx, 8
+//		add eax, ecx
+//		mov dword ptr ds : [globalSnakeLen], eax
+//	}
+//}
+
+//void generateRandomSnakeHead() {
+//	int x, y;
+//	__asm {
+//		// 取当前时间
+//		push 0
+//		call time
+//		add esp, 4
+//		// 设置随机数种子
+//		add eax, 23								// 为了避免和食物的位置重叠，给随机数加上一个固定值
+//		push eax
+//		call srand
+//		add esp, 4
+//		// 取 x 的随机数坐标
+//		call rand
+//		cdq
+//		mov ecx, 20
+//		idiv ecx
+//		mov dword ptr ds : [x] , edx
+//		// 取 y 的随机数坐标
+//		call rand
+//		cdq
+//		mov ecx, 20
+//		idiv ecx
+//		mov dword ptr ds : [y] , edx
+//
+//		// 写入到蛇头数组
+//		lea eax, dword ptr ds : [globalSnakeArr]
+//		mov ecx, dword ptr ds : [globalSnakeLen]
+//		imul ecx, ecx, 8
+//		add eax, ecx
+//
+//		mov ecx, dword ptr ds : [x]	// 写入 x
+//		mov dword ptr ds : [eax] , ecx
+//		mov ecx, dword ptr ds : [y]
+//		mov dword ptr ds : [eax + 4] , ecx
+//	}
+//}
+
+void setSnakePosition() {
 	int x;
 	int y;
 	int flag;
 	__asm {
-		// 清零 g_sSnakePosArray
+		// 清零 globalSnakeArr
 		push 800
 		push 0
 		lea eax, dword ptr ds : [globalSnakeArr]
@@ -738,7 +819,7 @@ void Death() {
 		push eax
 		call printf
 		add eax, 4
-		call EndGame
+		call endGame
 	}
 }
 
@@ -817,6 +898,6 @@ void gotoxyUtil(int pos) {
 		push - 11
 		call dword ptr ds : [GetStdHandle]
 		push eax
-		call dword ptr ds : [SetConsoleCursorPosition]
+		call dword ptr ds : [SetConsoleCursorPosition] 
 	}
 }
