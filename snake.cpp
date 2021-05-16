@@ -24,68 +24,44 @@ int globalMovementDirection;
 // 1 代表死亡
 int globalIsDead;
 
-// 工具函数
-// 清理屏幕
+void showMainMenu();
+void GetUserInput(int nSelect);
+void EndGame();
+void InitGameMapData();
+void RandSetFoodPosition();
+void RandSetSnakePosition();
+void DrawMap();
+void DrawSnake();
+void JudgeMoveFlag();
+void MoveSnake();
+void JudgeDetection();
+void AddSnakeLength();
+void Death();
 void clearScreenUtil();
-
-// 工具函数
-// 将光标移动到指定坐标处
 void gotoxyUtil(int pos);
 
-// 显示主菜单
-void ShowMainMenu();	
-// 获取用户输入
-void GetUserInput(int nSelect);
-// 结束游戏
-void EndGame();
-// 初始化地图数据
-void InitGameMapData();
-// 随机设置食物的位置
-void RandSetFoodPosition();
-// 随机设置蛇的位置
-void RandSetSnakePosition();
-// 画地图
-void DrawMap();
-// 画蛇
-void DrawSnake();
-// 判断此次移动状态
-void JudgeMoveFlag();
-// 移动蛇
-void MoveSnake();
-// 碰撞检测
-void JudgeDetection();
-// 增加蛇的长度
-void AddSnakeLength();
-// 死亡
-void Death();
-
-void clearScreenUtil() {
-	const char* szClearScreen = "cls";
+void main() {
 	__asm {
-		mov eax, dword ptr ds : [szClearScreen]
+		push 0
+		push 0
+		push 0
+		lea eax, dword ptr ds : [JudgeMoveFlag]
 		push eax
-		call system
-		add esp, 4
+		push 0
+		push 0
+		call dword ptr ds : [CreateThread]
+	}
+	__asm {
+		call showMainMenu
 	}
 }
 
-void gotoxyUtil(int pos) {
-	__asm {
-		mov eax, dword ptr ds : [pos]
-		push eax
-		push - 11
-		call dword ptr ds : [GetStdHandle]
-		push eax
-		call dword ptr ds : [SetConsoleCursorPosition]
-	}
-}
-
-void ShowMainMenu() {
+void showMainMenu() {
 	int nSelect;
-	const char *format1 = "#####################\n";
-	const char* format2 = "code by: LiJunLin\n";
-	const char* format3 = "1. 开始游戏; 2. 结束游戏\n";
-	const char* format4 = "您输入的编号不支持, 请在 2 秒之后重新输入\n";
+	const char *format1 = "-------------------------------------------------------------------\n";
+	const char* format2 = "author: LiJunLin\n";
+	const char* format3 = "1 开始游戏 2 结束游戏\n";
+	const char* format4 = "---您输入的编号不支持, 请在 2 秒之后重新输入--\n";
 
 	__asm {
 	show_menu_begin:
@@ -824,19 +800,23 @@ void AddSnakeLength() {
 	}
 }
 
-void main() {
-
+void clearScreenUtil() {
+	const char* szClearScreen = "cls";
 	__asm {
-		push 0
-		push 0
-		push 0
-		lea eax, dword ptr ds:[JudgeMoveFlag]
+		mov eax, dword ptr ds : [szClearScreen]
 		push eax
-		push 0
-		push 0
-		call dword ptr ds:[CreateThread]
+		call system
+		add esp, 4
 	}
+}
+
+void gotoxyUtil(int pos) {
 	__asm {
-		call ShowMainMenu
+		mov eax, dword ptr ds : [pos]
+		push eax
+		push - 11
+		call dword ptr ds : [GetStdHandle]
+		push eax
+		call dword ptr ds : [SetConsoleCursorPosition]
 	}
 }
