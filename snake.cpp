@@ -68,7 +68,7 @@ void enterGame() {
 	int selection;
 	const char *paramater = "%d";
 	__asm {
-	game_begin:
+	enter_game:
 		call showMainMenu
 
 		// 获取用户选择
@@ -88,7 +88,7 @@ void enterGame() {
 
 		// 处理非法选择
 		call handleIllegalSelection
-		jmp game_begin
+		jmp enter_game
 
 	start_game :
 		call startGame
@@ -166,10 +166,10 @@ void startGame() {
 }
 
 void endGame() {
-	const char *tip = "程序在两秒钟之后即将退出......";
+	const char *endGameTip = "程序在两秒钟之后即将退出......";
 	__asm {
 		// 打印提示信息
-		mov eax, dword ptr ds : [tip]
+		mov eax, dword ptr ds : [endGameTip]
 		push eax
 		call printf
 		add esp, 4
@@ -249,8 +249,12 @@ void setFoodPosition() {
 
 		mov cl, byte ptr ds : [eax]
 		cmp cl, 0xB
-		je set_food_pos	// 如果和墙重叠, 则回到开始位置, 重新生成随机数
-		mov byte ptr ds : [eax] , 0xC		// 如果没有墙, 则设置食物
+
+		// 如果和墙重叠, 则回到开始位置, 重新生成随机数
+		je set_food_pos
+
+		// 如果和墙壁重叠, 则设置食物
+		mov byte ptr ds : [eax] , 0xC	
 	}
 }
 
@@ -459,9 +463,9 @@ void drawMap() {
 	int i;
 	int j;
 	const char *wall = "#";
-	const char *szFood = "*";
-	const char *szNone = " ";
-	const char *szChangeLine = "\n";
+	const char *food = "*";
+	const char *nullCh = " ";
+	const char *changeLine = "\n";
 	const char *format1 = "%s";
 
 	__asm {
@@ -470,26 +474,26 @@ void drawMap() {
 
 		// 双重循环打印 g_MapDataArr
 		mov dword ptr ds:[i], 0
-		jmp print_first_for_cmp
-	print_first_for_inc:						// 第一个循环控制变量 ++ 的地方
+		jmp first_cmp
+	first_inc:						// 第一个循环控制变量 ++ 的地方
 		mov eax, dword ptr ds:[i]
 		inc eax
 		mov dword ptr ds:[i], eax
-	print_first_for_cmp:						// 第一个循环控制变量作对比的地方
+	first_cmp:						// 第一个循环控制变量作对比的地方
 		mov eax, dword ptr ds:[i]
 		cmp eax, 25
-		jge print_first_for_end
+		jge first_end
 		// 第二个循环							// 第一个循环的循环代码开始的地方
 		mov dword ptr ds:[j], 0
-		jmp print_second_for_cmp
-	print_second_for_inc:						
+		jmp second_cmp
+	second_inc:						
 		mov eax, dword ptr ds:[j]
 		inc eax
 		mov dword ptr ds:[j], eax
-	print_second_for_cmp:					
+	second_cmp:					
 		mov eax, dword ptr ds:[j]
 		cmp eax, 25
-		jge print_second_for_end
+		jge second_end
 
 		lea eax, dword ptr ds:[globalMapArr]
 		mov ecx, dword ptr ds:[i]
@@ -500,49 +504,41 @@ void drawMap() {
 
 		mov al, byte ptr ds:[eax]
 		cmp al, 0xB
-		je print_map_draw_wall
+		je draw_wall
 		cmp al, 0xC
-		je print_map_draw_food
+		je draw_food
 
 		// 打印空格
-		mov eax, dword ptr ds : [szNone]
+		mov eax, dword ptr ds : [nullCh]
 		push eax
-		mov ecx, dword ptr ds : [format1]
-		push ecx
 		call printf
-		add esp, 8
-		jmp print_second_for_inc
+		add esp, 4
+		jmp second_inc
 
 		// 打印墙壁
-	print_map_draw_wall:
+	draw_wall:
 		mov eax, dword ptr ds:[wall]
 		push eax
-		mov ecx, dword ptr ds:[format1]
-		push ecx
 		call printf
-		add esp, 8
-		jmp print_second_for_inc
+		add esp, 4
+		jmp second_inc
 
 		// 打印食物
-	print_map_draw_food:
-		mov eax, dword ptr ds : [szFood]
+	draw_food:
+		mov eax, dword ptr ds : [food]
 		push eax
-		mov ecx, dword ptr ds : [format1]
-		push ecx
 		call printf
-		add esp, 8
-		jmp print_second_for_inc
+		add esp, 4
+		jmp second_inc
 
-	print_second_for_end:
-		mov eax, dword ptr ds : [szChangeLine]
+	second_end:
+		mov eax, dword ptr ds : [changeLine]
 		push eax
-		mov ecx, dword ptr ds : [format1]
-		push ecx
 		call printf
-		add esp, 8
-		jmp print_first_for_inc
+		add esp, 4
+		jmp first_inc
 
-	print_first_for_end:
+	first_end:
 		nop
 	}
 }
