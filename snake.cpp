@@ -3,7 +3,7 @@
 #include <windows.h>
 #include <time.h>
 
-char globalMapArr[20][20];
+char globalMapArr[25][25];
 
 struct SnakePos {
 	int x;
@@ -19,8 +19,8 @@ int globalSnakeLen;
 // 4 代表向右移动
 int globalMovementDirection;
 
-int foodX;
-int foodY;
+int globalFoodX;
+int globalFoodY;
 
 void enterGame();
 void showMainMenu();
@@ -34,7 +34,7 @@ void setFoodPosition();
 void generateRandomFood();
 void setSnakePosition();
 void generateRandomSnakeHead();
-void DrawMap();
+void drawMap();
 void DrawSnake();
 void JudgeMoveFlag();
 void MoveSnake();
@@ -66,6 +66,7 @@ void main() {
 
 void enterGame() {
 	int selection;
+	const char *paramater = "%d";
 	__asm {
 	game_begin:
 		call showMainMenu
@@ -73,8 +74,10 @@ void enterGame() {
 		// 获取用户选择
 		lea eax, dword ptr ds : [selection]
 		push eax
-		call getUserSelection
-		add esp, 4
+		mov ecx, dword ptr ds:[paramater]
+		push ecx
+		call scanf
+		add esp, 8
 
 		// 判断用户的选择
 		mov eax, dword ptr ds : [selection]
@@ -126,26 +129,6 @@ void showMainMenu() {
 	}
 }
 
-void getUserSelection(int selection) {
-	const char *tip = "请输入 1 开始游戏，或者 2 退出游戏:\n";
-	const char *paramater = "%d";
-	__asm {
-		// 显示提示信息
-		mov eax, dword ptr ds:[tip]
-		push eax
-		call printf
-		add esp, 4
-
-		// 获取输入
-		mov eax, dword ptr ds:[selection]
-		push eax
-		mov ecx, dword ptr ds:[paramater]
-		push ecx
-		call scanf
-		add esp, 8
-	}
-}
-
 void handleIllegalSelection() {
 	const char* errMsg = "输入的编号不正确，请在 2s 之后重新输入\n";
 	__asm {
@@ -171,12 +154,12 @@ void startGame() {
 		call setSnakePosition
 
 	go_on_game :
-		call DrawMap
+		call drawMap
 		call DrawSnake
 		call MoveSnake	
 		call JudgeDetection
 
-		push 300
+		push 250
 		call dword ptr ds : [Sleep]
 		je go_on_game
 	}
@@ -206,14 +189,12 @@ void endGame() {
 void initMapData() {
 	__asm {
 		// 清零 g_MapDataArr
-		push 400
+		push 625
 		push 0
 		lea eax, dword ptr ds:[globalMapArr]
 		push eax
 		call memset
 		add esp, 12
-
-		call setWall
 	}
 }
 
@@ -221,7 +202,7 @@ void setWall() {
 	int i;
 	__asm {
 		mov dword ptr ds : [i] , 0
-		mov ecx, 20;
+		mov ecx, 25;
 	set_wall:
 		// 顶墙
 		lea eax, dword ptr ds : [globalMapArr]
@@ -229,21 +210,21 @@ void setWall() {
 		mov byte ptr ds : [eax + ebx] , 0xB
 		// 底墙
 		lea eax, dword ptr ds : [globalMapArr]
-		mov ebx, 19
-		imul ebx, ebx, 20
+		mov ebx, 24
+		imul ebx, ebx, 25
 		add eax, ebx
 		mov ebx, dword ptr ds : [i]
 		mov byte ptr ds : [eax + ebx] , 0xB
 		// 左墙
 		lea eax, dword ptr ds : [globalMapArr]
 		mov ebx, dword ptr ds : [i]
-		imul ebx, ebx, 20
+		imul ebx, ebx, 25
 		mov byte ptr ds : [eax + ebx] , 0xB
 		// 右墙
 		lea eax, dword ptr ds : [globalMapArr]
 		mov ebx, dword ptr ds : [i]
-		imul ebx, ebx, 20
-		add ebx, 19
+		imul ebx, ebx, 25
+		add ebx, 24
 		mov byte ptr ds : [eax + ebx] , 0xB
 		// i 自减
 		mov ebx, dword ptr ds : [i]
@@ -260,10 +241,10 @@ void setFoodPosition() {
 
 		// 判断食物是不是和墙壁重叠
 		lea eax, dword ptr ds : [globalMapArr]
-		mov ecx, dword ptr ds : [foodX]
-		imul ecx, ecx, 20
+		mov ecx, dword ptr ds : [globalFoodX]
+		imul ecx, ecx, 25
 		add eax, ecx
-		mov edx, dword ptr ds : [foodY]
+		mov edx, dword ptr ds : [globalFoodY]
 		add eax, edx
 
 		mov cl, byte ptr ds : [eax]
@@ -286,15 +267,15 @@ void generateRandomFood() {
 		// 获取 x 坐标值
 		call rand
 		cdq
-		mov ecx, 20
+		mov ecx, 25
 		idiv ecx
-		mov dword ptr ds : [foodX] , edx
+		mov dword ptr ds : [globalFoodX] , edx
 		// 获取 y 坐标值
 		call rand
 		cdq
-		mov ecx, 20
+		mov ecx, 25
 		idiv ecx
-		mov dword ptr ds : [foodY] , edx
+		mov dword ptr ds : [globalFoodY] , edx
 	}
 }
 
@@ -319,7 +300,7 @@ void generateRandomFood() {
 //
 //		lea eax, dword ptr ds : [globalMapArr]
 //		mov ecx, dword ptr ds : [x]
-//		imul ecx, ecx, 20
+//		imul ecx, ecx, 25
 //		add eax, ecx
 //		mov edx, dword ptr ds : [y]
 //		add eax, edx
@@ -351,13 +332,13 @@ void generateRandomFood() {
 //		// 取 x 的随机数坐标
 //		call rand
 //		cdq
-//		mov ecx, 20
+//		mov ecx, 25
 //		idiv ecx
 //		mov dword ptr ds : [x] , edx
 //		// 取 y 的随机数坐标
 //		call rand
 //		cdq
-//		mov ecx, 20
+//		mov ecx, 25
 //		idiv ecx
 //		mov dword ptr ds : [y] , edx
 //
@@ -406,14 +387,14 @@ void setSnakePosition() {
 		// 取 x 的随机数坐标
 		call rand
 		cdq
-		mov ecx, 20
+		mov ecx, 25
 		idiv ecx
 		mov dword ptr ds : [x] , edx
 		
 		// 取 y 的随机数坐标
 		call rand
 		cdq
-		mov ecx, 20
+		mov ecx, 25
 		idiv ecx
 		mov dword ptr ds : [y] , edx
 		
@@ -422,7 +403,7 @@ void setSnakePosition() {
 
 		lea eax, dword ptr ds : [globalMapArr]
 		mov ecx, dword ptr ds : [x]
-		imul ecx, ecx, 20
+		imul ecx, ecx, 25
 		add eax, ecx
 		mov ecx, dword ptr ds : [y]
 		add eax, ecx
@@ -473,15 +454,15 @@ void setSnakePosition() {
 	}
 }
 
-void DrawMap() {
+void drawMap() {
 
 	int i;
 	int j;
-	const char *szWall = "-";
-	const char* szFood = "*";
-	const char* szNone = " ";
-	const char* szChangeLine = "\n";
-	const char* format1 = "%s";
+	const char *wall = "#";
+	const char *szFood = "*";
+	const char *szNone = " ";
+	const char *szChangeLine = "\n";
+	const char *format1 = "%s";
 
 	__asm {
 		// 清屏
@@ -496,7 +477,7 @@ void DrawMap() {
 		mov dword ptr ds:[i], eax
 	print_first_for_cmp:						// 第一个循环控制变量作对比的地方
 		mov eax, dword ptr ds:[i]
-		cmp eax, 20
+		cmp eax, 25
 		jge print_first_for_end
 		// 第二个循环							// 第一个循环的循环代码开始的地方
 		mov dword ptr ds:[j], 0
@@ -507,12 +488,12 @@ void DrawMap() {
 		mov dword ptr ds:[j], eax
 	print_second_for_cmp:					
 		mov eax, dword ptr ds:[j]
-		cmp eax, 20
+		cmp eax, 25
 		jge print_second_for_end
 
 		lea eax, dword ptr ds:[globalMapArr]
 		mov ecx, dword ptr ds:[i]
-		imul ecx, ecx, 20
+		imul ecx, ecx, 25
 		add eax, ecx
 		mov ecx, dword ptr ds:[j]
 		add eax, ecx
@@ -534,7 +515,7 @@ void DrawMap() {
 
 		// 打印墙壁
 	print_map_draw_wall:
-		mov eax, dword ptr ds:[szWall]
+		mov eax, dword ptr ds:[wall]
 		push eax
 		mov ecx, dword ptr ds:[format1]
 		push ecx
@@ -568,7 +549,7 @@ void DrawMap() {
 
 void DrawSnake() {
 	int i;
-	const char *format = "M";
+	const char *format = "O";
 	__asm {
 		mov dword ptr ds:[i], 0
 		jmp print_snake_cmp
@@ -783,7 +764,7 @@ void JudgeDetection() {
 
 		// 是否撞墙
 		lea eax, dword ptr ds:[globalMapArr]
-		imul ecx, ecx, 20
+		imul ecx, ecx, 25
 		add eax, ecx
 		add eax, edx
 		mov cl, byte ptr ds:[eax]	// 从二维数组里面取指定下标值
@@ -801,10 +782,12 @@ void JudgeDetection() {
 		call Death
 
 	snake_get_score:
+
 		mov eax, dword ptr ds:[globalSnakeLen]
 		inc eax
 		mov dword ptr ds:[globalSnakeLen], eax
-		call AddSnakeLength
+		call AddSnakeLength 
+		
 
 	snake_get_score_end:
 		nop
@@ -882,9 +865,9 @@ void AddSnakeLength() {
 }
 
 void clearScreenUtil() {
-	const char* szClearScreen = "cls";
+	const char* clearScreen = "cls";
 	__asm {
-		mov eax, dword ptr ds : [szClearScreen]
+		mov eax, dword ptr ds : [clearScreen]
 		push eax
 		call system
 		add esp, 4
