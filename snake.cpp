@@ -19,15 +19,14 @@ int globalSnakeLen;
 // 4 代表向右移动
 int globalMovementDirection;
 
-int globalFoodX;
-int globalFoodY;
-
 int globalInitialSnakeHeadX;
 int globalInitialSnakeHeadY;
 
+int globalFoodX;
+int globalFoodY;
+
 void enterGame();
 void showMainMenu();
-void getUserSelection(int selection);
 void handleIllegalSelection();
 void startGame();
 void endGame();
@@ -38,7 +37,7 @@ void generateRandomFood();
 void setSnakePosition();
 void generateRandomSnakeHead();
 void drawMap();
-void DrawSnake();
+void drawSnake();
 void JudgeMoveFlag();
 void MoveSnake();
 void JudgeDetection();
@@ -86,7 +85,7 @@ void enterGame() {
 		mov eax, dword ptr ds : [selection]
 		cmp eax, 1
 		je start_game
-		cmp eax, 2
+		cmp eax, 2 
 		je end_game
 
 		// 处理非法选择
@@ -158,13 +157,13 @@ void startGame() {
 
 	go_on_game :
 		call drawMap
-		call DrawSnake
+		call drawSnake
 		call MoveSnake	
 		call JudgeDetection
 
 		push 250
 		call dword ptr ds : [Sleep]
-		je go_on_game
+		jmp go_on_game
 	}
 }
 
@@ -287,8 +286,6 @@ void generateRandomFood() {
 }
 
 void setSnakePosition() {
-	int x;
-	int y;
 	__asm {
 	set_snake_pos:
 		call generateRandomSnakeHead
@@ -350,14 +347,12 @@ void generateRandomSnakeHead() {
 }
 
 void drawMap() {
-
 	int i;
 	int j;
 	const char *wall = "#";
 	const char *food = "*";
 	const char *nullCh = " ";
 	const char *changeLine = "\n";
-	const char *format1 = "%s";
 
 	__asm {
 		// 清屏
@@ -385,6 +380,9 @@ void drawMap() {
 		mov eax, dword ptr ds:[j]
 		cmp eax, 25
 		jge second_end
+
+
+
 
 		lea eax, dword ptr ds:[globalMapArr]
 		mov ecx, dword ptr ds:[i]
@@ -422,6 +420,9 @@ void drawMap() {
 		add esp, 4
 		jmp second_inc
 
+
+
+
 	second_end:
 		mov eax, dword ptr ds : [changeLine]
 		push eax
@@ -434,7 +435,7 @@ void drawMap() {
 	}
 }
 
-void DrawSnake() {
+void drawSnake() {
 	int i;
 	const char *format = "O";
 	__asm {
@@ -765,9 +766,11 @@ void gotoxyUtil(int pos) {
 	__asm {
 		mov eax, dword ptr ds : [pos]
 		push eax
+
 		push - 11
 		call dword ptr ds : [GetStdHandle]
 		push eax
+		
 		call dword ptr ds : [SetConsoleCursorPosition] 
 	}
 }
