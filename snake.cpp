@@ -22,6 +22,9 @@ int globalMovementDirection;
 int globalFoodX;
 int globalFoodY;
 
+int globalInitialSnakeHeadX;
+int globalInitialSnakeHeadY;
+
 void enterGame();
 void showMainMenu();
 void getUserSelection(int selection);
@@ -283,178 +286,66 @@ void generateRandomFood() {
 	}
 }
 
-//void setSnakePosition() {
-//	int x;
-//	int y;
-//	__asm {
-//	set_snake_pos:
-//		call generateRandomSnakeHead
-//
-//		// 从蛇头数组中读取
-//		lea eax, dword ptr ds : [globalSnakeArr]
-//		mov ecx, dword ptr ds : [globalSnakeLen]
-//		imul ecx, ecx, 8
-//		add eax, ecx
-//
-//		mov ecx, dword ptr ds : [eax]
-//		mov dword ptr ds : [x], ecx
-//		
-//		mov ecx, dword ptr ds : [eax + 4] 
-//		mov dword ptr ds : [y], ecx
-//
-//		lea eax, dword ptr ds : [globalMapArr]
-//		mov ecx, dword ptr ds : [x]
-//		imul ecx, ecx, 25
-//		add eax, ecx
-//		mov edx, dword ptr ds : [y]
-//		add eax, edx
-//		
-//		mov cl, byte ptr ds : [eax]
-//		cmp cl, 0xB
-//		je set_snake_pos	// 如果和墙重叠, 则回到开始位置, 重新生成蛇头
-//
-//		// 蛇头的长度为1
-//		mov ecx, dword ptr ds : [globalSnakeLen]
-//		imul ecx, ecx, 8
-//		add eax, ecx
-//		mov dword ptr ds : [globalSnakeLen], eax
-//	}
-//}
-
-//void generateRandomSnakeHead() {
-//	int x, y;
-//	__asm {
-//		// 取当前时间
-//		push 0
-//		call time
-//		add esp, 4
-//		// 设置随机数种子
-//		add eax, 23								// 为了避免和食物的位置重叠，给随机数加上一个固定值
-//		push eax
-//		call srand
-//		add esp, 4
-//		// 取 x 的随机数坐标
-//		call rand
-//		cdq
-//		mov ecx, 25
-//		idiv ecx
-//		mov dword ptr ds : [x] , edx
-//		// 取 y 的随机数坐标
-//		call rand
-//		cdq
-//		mov ecx, 25
-//		idiv ecx
-//		mov dword ptr ds : [y] , edx
-//
-//		// 写入到蛇头数组
-//		lea eax, dword ptr ds : [globalSnakeArr]
-//		mov ecx, dword ptr ds : [globalSnakeLen]
-//		imul ecx, ecx, 8
-//		add eax, ecx
-//
-//		mov ecx, dword ptr ds : [x]	// 写入 x
-//		mov dword ptr ds : [eax] , ecx
-//		mov ecx, dword ptr ds : [y]
-//		mov dword ptr ds : [eax + 4] , ecx
-//	}
-//}
-
 void setSnakePosition() {
 	int x;
 	int y;
-	int flag;
 	__asm {
-		// 清零 globalSnakeArr
-		push 800
-		push 0
-		lea eax, dword ptr ds : [globalSnakeArr]
-		push eax
-		call memset
-		add esp, 12
-
-		// 初始化长度和 flag 标志
-		mov dword ptr ds : [globalSnakeLen] , 0;
-		mov dword ptr ds : [flag] , 0
-
-	set_snake_pos_begin :
-		// 取当前时间
-		push 0
-		call time
-		add esp, 4
-		
-		// 设置随机数种子
-		add eax, 23								// 为了避免和食物的位置重叠，给随机数加上一个固定值
-		push eax
-		call srand
-		add esp, 4
-
-		// 取 x 的随机数坐标
-		call rand
-		cdq
-		mov ecx, 25
-		idiv ecx
-		mov dword ptr ds : [x] , edx
-		
-		// 取 y 的随机数坐标
-		call rand
-		cdq
-		mov ecx, 25
-		idiv ecx
-		mov dword ptr ds : [y] , edx
-		
-	// 判断是否和墙壁重叠
-	set_snake_judge_iswall :
+	set_snake_pos:
+		call generateRandomSnakeHead
 
 		lea eax, dword ptr ds : [globalMapArr]
-		mov ecx, dword ptr ds : [x]
+		mov ecx, dword ptr ds : [globalInitialSnakeHeadX]
 		imul ecx, ecx, 25
 		add eax, ecx
-		mov ecx, dword ptr ds : [y]
-		add eax, ecx
+		mov edx, dword ptr ds : [globalInitialSnakeHeadY]
+		add eax, edx
+		
+		mov cl, byte ptr ds : [eax]
+		cmp cl, 0xB
+		je set_snake_pos	// 如果和墙重叠, 则回到开始位置, 重新生成蛇头
 
-		mov al, byte ptr ds : [eax]
-		mov ecx, dword ptr ds : [flag]	// 判断是否已经确定蛇头位置
-		cmp ecx, 1
-		je set_snake_pos_second_judge
-		jne set_snake_pos_first_judge
-
-	set_snake_pos_second_judge :
-
-		cmp al, 0xB							// 是否已经撞墙
-		je set_snake_pos_end
-		jne set_snake_pos_write
-
-	set_snake_pos_first_judge :
-
-		cmp al, 0xb
-		je set_snake_pos_begin
-		mov dword ptr ds : [flag] , 1	// 证明确定蛇头位置
-
-		// 写入到位置数组
-		set_snake_pos_write :
+		// 生成的蛇头满足要求, 则写入蛇的结构体
 		lea eax, dword ptr ds : [globalSnakeArr]
 		mov ecx, dword ptr ds : [globalSnakeLen]
 		imul ecx, ecx, 8
 		add eax, ecx
 
-		mov ecx, dword ptr ds : [x]	// 写入 x
-		mov dword ptr ds : [eax] , ecx
-		mov ecx, dword ptr ds : [y]
-		mov dword ptr ds : [eax + 4] , ecx
+		// 将 蛇头的 x 坐标写入结构体
+		mov ecx, dword ptr ds : [globalInitialSnakeHeadX] 
+		mov dword ptr ds : [eax], ecx
+		
+		// 将蛇头的 y 坐标写入结构体
+		mov ecx, dword ptr ds : [globalInitialSnakeHeadY] 
+		mov dword ptr ds : [eax + 4], ecx
 
-		// 判断是否继续循环
-		mov eax, dword ptr ds : [globalSnakeLen]
-		inc eax
-		mov dword ptr ds : [globalSnakeLen] , eax
-		cmp eax, 4
-		jg set_snake_pos_end
-		mov eax, dword ptr ds : [y]
-		inc eax
-		mov dword ptr ds : [y] , eax
-		jmp set_snake_judge_iswall
+		// 设置蛇的长度为 1
+		mov dword ptr ds : [globalSnakeLen] , 1
+	}
+}
 
-	set_snake_pos_end :
-		nop
+void generateRandomSnakeHead() {
+	__asm {
+		// 取当前时间
+		push 0
+		call time
+		add esp, 4
+		// 设置随机数种子
+		add eax, 23								// 为了避免和食物的位置重叠，给随机数加上一个固定值
+		push eax
+		call srand
+		add esp, 4
+		// 取 x 的随机数坐标
+		call rand
+		cdq
+		mov ecx, 25
+		idiv ecx
+		mov dword ptr ds : [globalInitialSnakeHeadX] , edx
+		// 取 y 的随机数坐标
+		call rand
+		cdq
+		mov ecx, 25
+		idiv ecx
+		mov dword ptr ds : [globalInitialSnakeHeadY] , edx
 	}
 }
 
