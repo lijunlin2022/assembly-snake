@@ -3,10 +3,15 @@ TITLE Program Snake
 .386
 .model flat, stdcall
 option casemap:none
-includelib msvcrt.lib
 
 ExitProcess proto, dwExitCode:dword
 Sleep proto, timeSpan:dword
+GetStdHandle proto, :dword
+SetConsoleCursorPosition proto hd:dword, pos:dword
+
+includelib msvcrt.lib
+includelib user32.lib
+
 system proto C, :ptr sbyte, :vararg
 printf proto C :ptr sbyte, :vararg
 scanf proto C :ptr sbyte, :vararg
@@ -21,9 +26,26 @@ rand proto C :dword
 ; 开辟 625 个字节的数组来设置地图
 globalMapArr byte 625 dup(?)
 
+; 定义结构体来存储蛇
+snakePos STRUCT
+	x dword ?
+	y dword ?
+snakePos ENDS
+
+globalSnakeArr snakePos 100 dup(<0, 0>)
+
+; 蛇的长度
+globalSnakeLen dword ?
+
+; 存储初始蛇头的位置
+globalInitialSnakeHeadX dword ?
+globalInitialSnakeHeadY dword ?
+
 ; 存储食物的位置
 globalFoodX dword ?
 globalFoodY dword ?
+
+snakeBody byte "O", 0
 
 ;	showMainMenu()
 ;	需要打印的分割线、作者信息、操作指南
@@ -97,35 +119,28 @@ startGame proc
 	call initMapData
 	call setWall
 	call setFoodPosition
+    call setSnakePosition
+
+go_on_game:
 	call drawMap
+	call drawSnake
+
+	push 250
+	call Sleep
+	jmp go_on_game
 	ret
 startGame endp
 
 ;	----------------------------------------------------------------------------------------------------------------------------------------
 showMainMenu proc
 	; 打印分割字符
-	mov eax, dword ptr offset dividingLine
-	push eax
-	call printf
-	add esp, 4
-
+	invoke printf, dword ptr offset dividingLine
 	; 打印作者信息
-	mov eax, dword ptr offset authorInfo
-	push eax
-	call printf
-	add esp, 4
-
+	invoke printf, dword ptr offset authorInfo
 	; 打印提示信息
-	mov eax, dword ptr offset operationGuide
-	push eax
-	call printf
-	add esp, 4
-
+	invoke printf, dword ptr offset operationGuide
 	; 打印分割字符
-	mov eax, dword ptr offset dividingLine
-	push eax
-	call printf
-	add esp, 4
+	invoke printf, dword ptr offset dividingLine
 
 	ret
 showMainMenu endp
@@ -235,12 +250,79 @@ generateRandomFood endp
 
 
 ;	----------------------------------------------------------------------------------------------------------------------------------------
+setSnakePosition proc
+set_snake_pos:
+	call generateRandomSnakeHead
+
+	lea eax, dword ptr ds : [globalMapArr]
+	mov ecx, dword ptr ds : [globalInitialSnakeHeadX]
+	imul ecx, ecx, 25
+	add eax, ecx
+	mov edx, dword ptr ds : [globalInitialSnakeHeadY]
+	add eax, edx
+		
+	mov cl, byte ptr ds : [eax]
+	cmp cl, 0bh
+	;	如果和墙重叠, 则回到开始位置, 重新生成蛇头
+	je set_snake_pos
+
+	;	生成的蛇头满足要求, 则写入蛇的结构体
+	lea eax, dword ptr ds : [globalSnakeArr]
+	mov ecx, dword ptr ds : [globalSnakeLen]
+	imul ecx, ecx, 8
+	add eax, ecx
+
+	;	将 蛇头的 x 坐标写入结构体
+	mov ecx, dword ptr ds : [globalInitialSnakeHeadX] 
+	mov dword ptr ds : [eax], ecx
+		
+	;	将蛇头的 y 坐标写入结构体
+	mov ecx, dword ptr ds : [globalInitialSnakeHeadY] 
+	mov dword ptr ds : [eax + 4], ecx
+
+	;	设置蛇的长度为 1
+	mov dword ptr ds : [globalSnakeLen] , 1
+
+	ret
+setSnakePosition endp
+
+
+
+;	----------------------------------------------------------------------------------------------------------------------------------------
+generateRandomSnakeHead proc
+	;	取当前时间
+	push 0
+	call time
+	add esp, 4
+	;	设置随机数种子
+	;	为了避免和食物的位置重叠，给随机数加上一个固定值
+	add eax, 23
+	push eax
+	call srand
+	add esp, 4
+	;	取 x 的随机数坐标
+	call rand
+	cdq
+	mov ecx, 25
+	idiv ecx
+	mov dword ptr ds : [globalInitialSnakeHeadX] , edx
+	;	取 y 的随机数坐标
+	call rand
+	cdq
+	mov ecx, 25
+	idiv ecx
+	mov dword ptr ds : [globalInitialSnakeHeadY] , edx
+
+	ret
+generateRandomSnakeHead endp
+
+
+
+
+;	----------------------------------------------------------------------------------------------------------------------------------------
 handleIllegalSelection proc
 	; 打印错误信息
-	mov eax, dword ptr offset errMsg
-	push eax
-	call printf
-	add esp, 4
+	invoke printf, dword ptr offset errMsg
 	
 	; 延时函数
 	push 2000
@@ -251,7 +333,6 @@ handleIllegalSelection endp
 
 
 ;	----------------------------------------------------------------------------------------------------------------------------------------
-
 drawMap proc
 	call clearScreenUtil
 
@@ -281,6 +362,7 @@ second_cmp:
 	cmp eax, 25
 	jge second_end
 
+	;	---------------------------------------------------
 	lea eax, dword ptr ds:[globalMapArr]
 	mov ecx, dword ptr ds:[i]
 	imul ecx, ecx, 25
@@ -295,27 +377,19 @@ second_cmp:
 	je draw_food
 
 	; 打印空格
-	mov eax, dword ptr offset nullCh
-	push eax
-	call printf
-	add esp, 4
+	invoke printf, dword ptr offset nullCh
 	jmp second_inc
 
 	; 打印墙壁
 draw_wall:
-	mov eax, dword ptr offset wall
-	push eax
-	call printf
-	add esp, 4
+	invoke printf, dword ptr offset wall
 	jmp second_inc
 
 	; 打印食物
 draw_food:
-	mov eax, dword ptr offset food
-	push eax
-	call printf
-	add esp, 4
+	invoke printf, dword ptr offset food
 	jmp second_inc
+	;	---------------------------------------------------
 
 second_end:
 	mov eax, dword ptr offset changeLine
@@ -331,23 +405,61 @@ first_end:
 drawMap endp
 
 
+
+
+;	----------------------------------------------------------------------------------------------------------------------------------------
+drawSnake proc
+    mov dword ptr ds:[i], 0
+	jmp print_snake_cmp
+
+print_snake_inc:
+	mov eax, dword ptr ds:[i]
+	inc eax
+	mov dword ptr ds:[i], eax
+print_snake_cmp:
+	mov eax, dword ptr ds:[i]
+	mov ecx, dword ptr ds:[globalSnakeLen]
+	; 如果画好的长度等于储存的贪吃蛇的长度, 则画图结束
+	cmp eax, ecx	
+	jge print_snake_end
+
+	; 执行代码
+	lea eax, dword ptr ds:[globalSnakeArr]
+	mov ecx, dword ptr ds:[i]
+	imul ecx, ecx, 8
+	add eax, ecx
+
+	; 得到蛇的坐标, 拼接后调用 gotoxy
+	mov ecx, dword ptr ds:[eax]							; 取出 x
+	shl ecx, 16													; 左移 16 位
+	mov edx, dword ptr ds:[eax + 4]					; 取出 y
+	or ecx, edx													; 拼接完成
+	push ecx														; 设置光标位置
+	call gotoxyUtil
+	add esp, 4
+
+	; 打印蛇的身体
+	invoke printf, dword ptr offset snakeBody
+	jmp print_snake_inc
+
+print_snake_end:
+	nop
+	ret
+
+	
+drawSnake endp
 ;	----------------------------------------------------------------------------------------------------------------------------------------
 endGame proc
 	; 打印提示信息
-	mov eax, dword ptr offset endGameTip
-	push eax
-	call printf
-	add esp, 4
+	invoke printf, dword ptr offset endGameTip
 
 	; 延时 2s
 	push 2000
 	call Sleep
-	add esp, 4
 
 	; 退出
 	push 0
 	call ExitProcess
-	add esp, 4
 	ret
 endGame endp
 
@@ -361,6 +473,25 @@ clearScreenUtil proc
 	ret
 clearScreenUtil endp
 
+
+
+;	----------------------------------------------------------------------------------------------------------------------------------------
+gotoxyUtil proc C pos:dword
+	mov eax, dword ptr ds : [pos]
+	push eax
+
+	push -11
+	call GetStdHandle
+	push eax
+
+	call SetConsoleCursorPosition
+	ret
+gotoxyUtil endp
+
+
+
+
+;	----------------------------------------------------------------------------------------------------------------------------------------
 
 ;	##################################################################################
 main proc
