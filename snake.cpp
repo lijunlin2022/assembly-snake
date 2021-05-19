@@ -1,4 +1,4 @@
-#include <stdio.h>
+=#include <stdio.h>
 #include <stdlib.h>
 #include <windows.h>
 #include <time.h>
@@ -38,8 +38,9 @@ void setSnakePosition();
 void generateRandomSnakeHead();
 void drawMap();
 void drawSnake();
-void JudgeMoveFlag();
-void MoveSnake();
+void moveSnake();
+void judgeMovementDirection();
+
 void JudgeDetection();
 void AddSnakeLength();
 void Death();
@@ -54,11 +55,11 @@ void main() {
 		push 0
 		push 0
 		push 0
-		lea eax, dword ptr ds : [JudgeMoveFlag]
+		lea eax, dword ptr ds : [judgeMovementDirection]
 		push eax
 		push 0
 		push 0
-		call dword ptr ds : [CreateThread]
+		call CreateThread
 
 		// 第二个线程
 		// 打印游戏画面
@@ -73,29 +74,29 @@ void enterGame() {
 	enter_game:
 		call showMainMenu
 
-			// 获取用户选择
-			lea eax, dword ptr ds : [selection]
-			push eax
-			mov ecx, dword ptr ds : [paramater]
-			push ecx
-			call scanf
-			add esp, 8
+		// 获取用户选择
+		lea eax, dword ptr ds : [selection]
+		push eax
+		mov ecx, dword ptr ds : [paramater]
+		push ecx
+		call scanf
+		add esp, 8
 
-			// 判断用户的选择
-			mov eax, dword ptr ds : [selection]
-			cmp eax, 1
-			je start_game
-			cmp eax, 2
-			je end_game
+		// 判断用户的选择
+		mov eax, dword ptr ds : [selection]
+		cmp eax, 1
+		je start_game
+		cmp eax, 2
+		je end_game
 
-			// 处理非法选择
-			call handleIllegalSelection
-			jmp enter_game
+		// 处理非法选择
+		call handleIllegalSelection
+		jmp enter_game
 
-			start_game :
+	start_game :
 		call startGame
 
-			end_game :
+	end_game :
 		call endGame
 	}
 }
@@ -155,15 +156,15 @@ void startGame() {
 		call setFoodPosition
 		call setSnakePosition
 
-		go_on_game :
+	go_on_game :
 		call drawMap
-			call drawSnake
-			call MoveSnake
-			call JudgeDetection
+		call drawSnake
+		call moveSnake
+		call JudgeDetection
 
-			push 250
-			call dword ptr ds : [Sleep]
-			jmp go_on_game
+		push 250
+		call dword ptr ds : [Sleep]
+		jmp go_on_game
 	}
 }
 
@@ -208,31 +209,31 @@ void setWall() {
 	set_wall:
 		// 顶墙
 		lea eax, dword ptr ds : [globalMapArr]
-			mov ebx, dword ptr ds : [i]
-			mov byte ptr ds : [eax + ebx] , 0xB
-			// 底墙
-			lea eax, dword ptr ds : [globalMapArr]
-			mov ebx, 24
-			imul ebx, ebx, 25
-			add eax, ebx
-			mov ebx, dword ptr ds : [i]
-			mov byte ptr ds : [eax + ebx] , 0xB
-			// 左墙
-			lea eax, dword ptr ds : [globalMapArr]
-			mov ebx, dword ptr ds : [i]
-			imul ebx, ebx, 25
-			mov byte ptr ds : [eax + ebx] , 0xB
-			// 右墙
-			lea eax, dword ptr ds : [globalMapArr]
-			mov ebx, dword ptr ds : [i]
-			imul ebx, ebx, 25
-			add ebx, 24
-			mov byte ptr ds : [eax + ebx] , 0xB
-			// i 自减
-			mov ebx, dword ptr ds : [i]
-			inc ebx
-			mov dword ptr ds : [i] , ebx
-			loop set_wall
+		mov ebx, dword ptr ds : [i]
+		mov byte ptr ds : [eax + ebx] , 0bh
+		// 底墙
+		lea eax, dword ptr ds : [globalMapArr]
+		mov ebx, 24
+		imul ebx, ebx, 25
+		add eax, ebx
+		mov ebx, dword ptr ds : [i]
+		mov byte ptr ds : [eax + ebx] , 0bh
+		// 左墙
+		lea eax, dword ptr ds : [globalMapArr]
+		mov ebx, dword ptr ds : [i]
+		imul ebx, ebx, 25
+		mov byte ptr ds : [eax + ebx] , 0bh
+		// 右墙
+		lea eax, dword ptr ds : [globalMapArr]
+		mov ebx, dword ptr ds : [i]
+		imul ebx, ebx, 25
+		add ebx, 24
+		mov byte ptr ds : [eax + ebx] , 0bh
+		// i 自减
+		mov ebx, dword ptr ds : [i]
+		inc ebx
+		mov dword ptr ds : [i] , ebx
+		loop set_wall
 	}
 }
 
@@ -241,22 +242,22 @@ void setFoodPosition() {
 	set_food_pos:
 		call generateRandomFood
 
-			// 判断食物是不是和墙壁重叠
-			lea eax, dword ptr ds : [globalMapArr]
-			mov ecx, dword ptr ds : [globalFoodX]
-			imul ecx, ecx, 25
-			add eax, ecx
-			mov edx, dword ptr ds : [globalFoodY]
-			add eax, edx
+		// 判断食物是不是和墙壁重叠
+		lea eax, dword ptr ds : [globalMapArr]
+		mov ecx, dword ptr ds : [globalFoodX]
+		imul ecx, ecx, 25
+		add eax, ecx
+		mov edx, dword ptr ds : [globalFoodY]
+		add eax, edx
 
-			mov cl, byte ptr ds : [eax]
-			cmp cl, 0xB
+		mov cl, byte ptr ds : [eax]
+		cmp cl, 0xB
 
-			// 如果和墙重叠, 则回到开始位置, 重新生成随机数
-			je set_food_pos
+		// 如果和墙重叠, 则回到开始位置, 重新生成随机数
+		je set_food_pos
 
-			// 如果和墙壁重叠, 则设置食物
-			mov byte ptr ds : [eax] , 0xC
+		// 如果和墙壁重叠, 则设置食物
+		mov byte ptr ds : [eax] , 0ch
 	}
 }
 
@@ -290,33 +291,33 @@ void setSnakePosition() {
 	set_snake_pos:
 		call generateRandomSnakeHead
 
-			lea eax, dword ptr ds : [globalMapArr]
-			mov ecx, dword ptr ds : [globalInitialSnakeHeadX]
-			imul ecx, ecx, 25
-			add eax, ecx
-			mov edx, dword ptr ds : [globalInitialSnakeHeadY]
-			add eax, edx
+		lea eax, dword ptr ds : [globalMapArr]
+		mov ecx, dword ptr ds : [globalInitialSnakeHeadX]
+		imul ecx, ecx, 25
+		add eax, ecx
+		mov edx, dword ptr ds : [globalInitialSnakeHeadY]
+		add eax, edx
 
-			mov cl, byte ptr ds : [eax]
-			cmp cl, 0xB
-			je set_snake_pos	// 如果和墙重叠, 则回到开始位置, 重新生成蛇头
+		mov cl, byte ptr ds : [eax]
+		cmp cl, 0xB
+		je set_snake_pos	// 如果和墙重叠, 则回到开始位置, 重新生成蛇头
 
-			// 生成的蛇头满足要求, 则写入蛇的结构体
-			lea eax, dword ptr ds : [globalSnakeArr]
-			mov ecx, dword ptr ds : [globalSnakeLen]
-			imul ecx, ecx, 8
-			add eax, ecx
+		// 生成的蛇头满足要求, 则写入蛇的结构体
+		lea eax, dword ptr ds : [globalSnakeArr]
+		mov ecx, dword ptr ds : [globalSnakeLen]
+		imul ecx, ecx, 8
+		add eax, ecx
 
-			// 将 蛇头的 x 坐标写入结构体
-			mov ecx, dword ptr ds : [globalInitialSnakeHeadX]
-			mov dword ptr ds : [eax] , ecx
+		// 将 蛇头的 x 坐标写入结构体
+		mov ecx, dword ptr ds : [globalInitialSnakeHeadX]
+		mov dword ptr ds : [eax] , ecx
 
-			// 将蛇头的 y 坐标写入结构体
-			mov ecx, dword ptr ds : [globalInitialSnakeHeadY]
-			mov dword ptr ds : [eax + 4] , ecx
+		// 将蛇头的 y 坐标写入结构体
+		mov ecx, dword ptr ds : [globalInitialSnakeHeadY]
+		mov dword ptr ds : [eax + 4] , ecx
 
-			// 设置蛇的长度为 1
-			mov dword ptr ds : [globalSnakeLen] , 1
+		// 设置蛇的长度为 1
+		mov dword ptr ds : [globalSnakeLen] , 1
 	}
 }
 
@@ -363,74 +364,74 @@ void drawMap() {
 		jmp first_cmp
 		first_inc :						// 第一个循环控制变量 ++ 的地方
 		mov eax, dword ptr ds : [i]
-			inc eax
-			mov dword ptr ds : [i] , eax
-			first_cmp :						// 第一个循环控制变量作对比的地方
+		inc eax
+		mov dword ptr ds : [i] , eax
+	first_cmp :						// 第一个循环控制变量作对比的地方
 		mov eax, dword ptr ds : [i]
-			cmp eax, 25
-			jge first_end
-			// 第二个循环							// 第一个循环的循环代码开始的地方
-			mov dword ptr ds : [j] , 0
-			jmp second_cmp
-			second_inc :
+		cmp eax, 25
+		jge first_end
+		// 第二个循环							// 第一个循环的循环代码开始的地方
+		mov dword ptr ds : [j] , 0
+		jmp second_cmp
+	second_inc :
 		mov eax, dword ptr ds : [j]
-			inc eax
-			mov dword ptr ds : [j] , eax
-			second_cmp :
+		inc eax
+		mov dword ptr ds : [j] , eax
+	second_cmp :
 		mov eax, dword ptr ds : [j]
-			cmp eax, 25
-			jge second_end
+		cmp eax, 25
+		jge second_end
 
 
 
 
-			lea eax, dword ptr ds : [globalMapArr]
-			mov ecx, dword ptr ds : [i]
-			imul ecx, ecx, 25
-			add eax, ecx
-			mov ecx, dword ptr ds : [j]
-			add eax, ecx
+		lea eax, dword ptr ds : [globalMapArr]
+		mov ecx, dword ptr ds : [i]
+		imul ecx, ecx, 25
+		add eax, ecx
+		mov ecx, dword ptr ds : [j]
+		add eax, ecx
 
-			mov al, byte ptr ds : [eax]
-			cmp al, 0xB
-			je draw_wall
-			cmp al, 0xC
-			je draw_food
+		mov al, byte ptr ds : [eax]
+		cmp al, 0xB
+		je draw_wall
+		cmp al, 0xC
+		je draw_food
 
-			// 打印空格
-			mov eax, dword ptr ds : [nullCh]
-			push eax
-			call printf
-			add esp, 4
-			jmp second_inc
+		// 打印空格
+		mov eax, dword ptr ds : [nullCh]
+		push eax
+		call printf
+		add esp, 4
+		jmp second_inc
 
 			// 打印墙壁
-			draw_wall :
+	draw_wall :
 		mov eax, dword ptr ds : [wall]
-			push eax
-			call printf
-			add esp, 4
-			jmp second_inc
+		push eax
+		call printf
+		add esp, 4
+		jmp second_inc
 
 			// 打印食物
-			draw_food :
+	draw_food :
 		mov eax, dword ptr ds : [food]
-			push eax
-			call printf
-			add esp, 4
-			jmp second_inc
+		push eax
+		call printf
+		add esp, 4
+		jmp second_inc
 
 
 
 
-		second_end:
+	second_end:
 		mov eax, dword ptr ds : [changeLine]
-			push eax
-			call printf
-			add esp, 4
-			jmp first_inc
+		push eax
+		call printf
+		add esp, 4
+		jmp first_inc
 
-			first_end :
+	first_end :
 		nop
 	}
 }
@@ -442,200 +443,199 @@ void drawSnake() {
 		mov dword ptr ds : [i] , 0
 		jmp print_snake_cmp
 
-		print_snake_inc :
+	print_snake_inc :
 		mov eax, dword ptr ds : [i]
-			inc eax
-			mov dword ptr ds : [i] , eax
-			print_snake_cmp :
+		inc eax
+		mov dword ptr ds : [i] , eax
+	print_snake_cmp :
 		mov eax, dword ptr ds : [i]
-			mov ecx, dword ptr ds : [globalSnakeLen]
-			cmp eax, ecx													// 如果画好的长度等于储存的贪吃蛇的长度, 则画图结束
-			jge print_snake_end
+		mov ecx, dword ptr ds : [globalSnakeLen]
+		cmp eax, ecx													// 如果画好的长度等于储存的贪吃蛇的长度, 则画图结束
+		jge print_snake_end
 
-			// 执行代码
-			lea eax, dword ptr ds : [globalSnakeArr]		// 计算地址
-			mov ecx, dword ptr ds : [i]
-			imul ecx, ecx, 8
-			add eax, ecx
+		// 执行代码
+		lea eax, dword ptr ds : [globalSnakeArr]		// 计算地址
+		mov ecx, dword ptr ds : [i]
+		imul ecx, ecx, 8
+		add eax, ecx
 
-			// 得到蛇的坐标, 拼接后调用 gotoxy
-			mov ecx, dword ptr ds : [eax]							// 取出 x
-			shl ecx, 16													// 左移 16 位
-			mov edx, dword ptr ds : [eax + 4]					// 取出 y
-			or ecx, edx													// 拼接完成
-			push ecx														// 设置光标位置
-			call gotoxyUtil
-			add esp, 4
+		// 得到蛇的坐标, 拼接后调用 gotoxy
+		mov ecx, dword ptr ds : [eax]							// 取出 x
+		shl ecx, 16													// 左移 16 位
+		mov edx, dword ptr ds : [eax + 4]					// 取出 y
+		or ecx, edx													// 拼接完成
+		push ecx														// 设置光标位置
+		call gotoxyUtil
+		add esp, 4
 
-			// 打印蛇的身体
-			mov eax, dword ptr ds : [format]
-			push eax
-			call printf
-			add esp, 4
-			jmp print_snake_inc
+		// 打印蛇的身体
+		mov eax, dword ptr ds : [format]
+		push eax
+		call printf
+		add esp, 4
+		jmp print_snake_inc
 
-			print_snake_end :
+	print_snake_end :
 		nop
 	}
 }
 
-void JudgeMoveFlag() {
-	int flag;
-	while (true) {
-		__asm {
-		back_while:
-			// 获取 w 键
-			push 87
-				call dword ptr ds : [GetAsyncKeyState]
-				and ax, 0xff00												// 与操作，获取第 15 位的值
-				cmp ax, 0														// 如果为 0 表示没有被按下
-				jne w_press
-
-				// 获取 s 键
-				push 83
-				call dword ptr ds : [GetAsyncKeyState]
-				and ax, 0xff00
-				cmp ax, 0
-				jne s_press
-
-				// 获取 a 键
-				push 65
-				call dword ptr ds : [GetAsyncKeyState]
-				and ax, 0xff00
-				cmp ax, 0
-				jne a_press
-
-				// 获取 d 键
-				push 68
-				call dword ptr ds : [GetAsyncKeyState]
-				and ax, 0xff00
-				cmp ax, 0
-				jne d_press
-				jmp back_while
-
-				// 如果 w 键被按下
-				w_press :
-			mov eax, dword ptr ds : [globalMovementDirection]
-				cmp eax, 2												// 当前移动方向是否向下
-				je w_back
-				mov dword ptr ds : [globalMovementDirection] , 1
-				w_back :
-				jmp back_while
-
-				// 如果 s 键被按下
-				s_press :
-			mov eax, dword ptr ds : [globalMovementDirection]
-				cmp eax, 1										// 当前移动方向是否向上
-				je s_back
-				mov dword ptr ds : [globalMovementDirection] , 2
-				s_back :
-				jmp back_while
-
-				// 如果 a 键被按下
-				a_press :
-			mov eax, dword ptr ds : [globalMovementDirection]
-				cmp eax, 4										// 当前移动方向是否向右
-				je a_back
-				mov dword ptr ds : [globalMovementDirection] , 3
-				a_back :
-				jmp back_while
-
-				// 如果 d 键被按下
-				d_press :
-			mov eax, dword ptr ds : [globalMovementDirection]
-				cmp eax, 3									// 当前移动方向是否向左
-				je d_back
-				mov dword ptr ds : [globalMovementDirection] , 4
-				d_back :
-				jmp back_while
-		}
-	}
-}
-
-void MoveSnake() {
+void moveSnake() {
 	int i;
 	__asm {
 		// 给循环变量赋值
 		mov eax, dword ptr ds : [globalSnakeLen]
 		sub eax, 2
 		mov dword ptr ds : [i] , eax
-		jmp snake_move_cmp
+		jmp snake_cmp
 
-		snake_move_dec :
+	snake_dec :
 		mov eax, dword ptr ds : [i]
-			dec eax
-			mov dword ptr ds : [i] , eax
+		dec eax
+		mov dword ptr ds : [i] , eax
 
-			snake_move_cmp :
+	snake_cmp :
 		mov eax, dword ptr ds : [i]
-			cmp eax, 0
-			jl snake_move_end
+		cmp eax, 0
+		jl snake_end
 
-			lea eax, dword ptr ds : [globalSnakeArr]
-			mov ecx, dword ptr ds : [i]
-			imul ecx, ecx, 8
-			add eax, ecx
-			mov ecx, dword ptr ds : [eax]		// x
-			mov edx, dword ptr ds : [eax + 4]	// y
+		lea eax, dword ptr ds : [globalSnakeArr]
+		mov ecx, dword ptr ds : [i]
+		imul ecx, ecx, 8
+		add eax, ecx
+		mov ecx, dword ptr ds : [eax]		// x
+		mov edx, dword ptr ds : [eax + 4]	// y
 
-			// 放到 i + 1 的下标中
-			add eax, 8
-			mov dword ptr ds : [eax] , ecx
-			mov dword ptr ds : [eax + 4] , edx
-			jmp snake_move_dec
+		// 放到 i + 1 的下标中
+		add eax, 8
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp snake_dec
 
-			snake_move_end :
+	snake_end :
 
 		// 确定蛇头位置
 		mov eax, dword ptr ds : [globalMovementDirection]
-			cmp eax, 1
-			je move_up
-			cmp eax, 2
-			je move_down
-			cmp eax, 3
-			je move_left
-			cmp eax, 4
-			je move_right
+		cmp eax, 1
+		je move_up
+		cmp eax, 2
+		je move_down
+		cmp eax, 3
+		je move_left
+		cmp eax, 4
+		je move_right
 
-			// 向上移动
-			move_up :
+		// 向上移动
+	move_up :
 		lea eax, dword ptr ds : [globalSnakeArr]
-			mov ecx, dword ptr ds : [eax]		// x
-			mov edx, dword ptr ds : [eax + 4]	// y
-			dec ecx
-			mov dword ptr ds : [eax] , ecx
-			mov dword ptr ds : [eax + 4] , edx
-			jmp 	snake_move_fun_end
-			// 向下移动
-			move_down :
+		mov ecx, dword ptr ds : [eax]		// x
+		mov edx, dword ptr ds : [eax + 4]	// y
+		dec ecx
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp 	fun_end
+		// 向下移动
+	move_down :
 		lea eax, dword ptr ds : [globalSnakeArr]
-			mov ecx, dword ptr ds : [eax]		// x
-			mov edx, dword ptr ds : [eax + 4]	// y
-			inc ecx
-			mov dword ptr ds : [eax] , ecx
-			mov dword ptr ds : [eax + 4] , edx
-			jmp 	snake_move_fun_end
-			// 向左移动
-			move_left :
+		mov ecx, dword ptr ds : [eax]		// x
+		mov edx, dword ptr ds : [eax + 4]	// y
+		inc ecx
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp 	fun_end
+		// 向左移动
+	move_left :
 		lea eax, dword ptr ds : [globalSnakeArr]
-			mov ecx, dword ptr ds : [eax]		// x
-			mov edx, dword ptr ds : [eax + 4]	// y
-			dec edx
-			mov dword ptr ds : [eax] , ecx
-			mov dword ptr ds : [eax + 4] , edx
-			jmp 	snake_move_fun_end
-			// 向右移动
-			move_right :
+		mov ecx, dword ptr ds : [eax]		// x
+		mov edx, dword ptr ds : [eax + 4]	// y
+		dec edx
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp 	fun_end
+		// 向右移动
+	move_right :
 		lea eax, dword ptr ds : [globalSnakeArr]
-			mov ecx, dword ptr ds : [eax]		// x
-			mov edx, dword ptr ds : [eax + 4]	// y
-			inc edx
-			mov dword ptr ds : [eax] , ecx
-			mov dword ptr ds : [eax + 4] , edx
-			jmp 	snake_move_fun_end
+		mov ecx, dword ptr ds : [eax]		// x
+		mov edx, dword ptr ds : [eax + 4]	// y
+		inc edx
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp 	fun_end
 
-			snake_move_fun_end :
+	fun_end :
 		nop
+	}
+}
+
+void  judgeMovementDirection() {
+	while (true) {
+		__asm {
+	back_while:
+		// 获取 w 键
+		push 87
+		call GetAsyncKeyState
+		and ax, 0ff00h												// 与操作，获取第 15 位的值
+		cmp ax, 0														// 如果为 0 表示没有被按下
+		jne w_press
+
+		// 获取 s 键
+		push 83
+		call GetAsyncKeyState
+		and ax, 0ff00h
+		cmp ax, 0
+		jne s_press
+
+		// 获取 a 键
+		push 65
+		call GetAsyncKeyState
+		and ax, 0ff00h
+		cmp ax, 0
+		jne a_press
+
+		// 获取 d 键
+		push 68
+		call GetAsyncKeyState
+		and ax, 0ff00h
+		cmp ax, 0
+		jne d_press
+		jmp back_while
+
+		// 如果 w 键被按下
+	w_press :
+		mov eax, dword ptr ds : [globalMovementDirection]
+		cmp eax, 2												// 当前移动方向是否向下
+		je w_back
+		mov dword ptr ds : [globalMovementDirection] , 1
+		w_back :
+		jmp back_while
+
+		// 如果 s 键被按下
+	s_press :
+		mov eax, dword ptr ds : [globalMovementDirection]
+		cmp eax, 1										// 当前移动方向是否向上
+		je s_back
+		mov dword ptr ds : [globalMovementDirection] , 2
+		s_back :
+		jmp back_while
+
+		// 如果 a 键被按下
+	a_press :
+		mov eax, dword ptr ds : [globalMovementDirection]
+		cmp eax, 4										// 当前移动方向是否向右
+		je a_back
+		mov dword ptr ds : [globalMovementDirection] , 3
+		a_back :
+		jmp back_while
+
+		// 如果 d 键被按下
+	d_press :
+		mov eax, dword ptr ds : [globalMovementDirection]
+		cmp eax, 3									// 当前移动方向是否向左
+		je d_back
+		mov dword ptr ds : [globalMovementDirection] , 4
+		d_back :
+		jmp back_while
+		}
 	}
 }
 
@@ -696,10 +696,6 @@ void Death() {
 	}
 }
 
-void GetScore() {
-
-}
-
 void AddSnakeLength() {
 	__asm {
 		lea eax, dword ptr ds : [globalSnakeArr]
@@ -721,36 +717,36 @@ void AddSnakeLength() {
 		cmp ebx, 4
 		je move_right
 		// 向上移动
-		move_up :
+	move_up :
 		inc ecx
-			add eax, 8
-			mov dword ptr ds : [eax] , ecx
-			mov dword ptr ds : [eax + 4] , edx
-			jmp snake_add_length_end
-			// 向下移动
-			move_down :
+		add eax, 8
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp snake_add_length_end
+		// 向下移动
+	move_down :
 		dec ecx
-			add eax, 8
-			mov dword ptr ds : [eax] , ecx
-			mov dword ptr ds : [eax + 4] , edx
-			jmp snake_add_length_end
-			// 向左移动
-			move_left :
+		add eax, 8
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp snake_add_length_end
+		// 向左移动
+	move_left :
 		inc edx
-			add eax, 8
-			mov dword ptr ds : [eax] , ecx
-			mov dword ptr ds : [eax + 4] , edx
-			jmp snake_add_length_end
-			// 向右移动
-			move_right :
+		add eax, 8
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp snake_add_length_end
+		// 向右移动
+	move_right :
 		dec edx
-			add eax, 8
-			mov dword ptr ds : [eax] , ecx
-			mov dword ptr ds : [eax + 4] , edx
-			jmp snake_add_length_end
-			snake_add_length_end :
+		add eax, 8
+		mov dword ptr ds : [eax] , ecx
+		mov dword ptr ds : [eax + 4] , edx
+		jmp snake_add_length_end
+	snake_add_length_end :
 		pop ebx
-			nop
+		nop
 	}
 }
 
@@ -770,9 +766,9 @@ void gotoxyUtil(int pos) {
 		push eax
 
 		push - 11
-		call dword ptr ds : [GetStdHandle]
+		call GetStdHandle
 		push eax
 
-		call dword ptr ds : [SetConsoleCursorPosition]
+		call SetConsoleCursorPosition
 	}
 }
