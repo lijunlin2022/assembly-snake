@@ -4,13 +4,15 @@ TITLE Program Snake
 .model flat, stdcall
 option casemap:none
 
+includelib msvcrt.lib
+includelib user32.lib
+
 ExitProcess proto, dwExitCode:dword
 Sleep proto, timeSpan:dword
 GetStdHandle proto, :dword
 SetConsoleCursorPosition proto hd:dword, pos:dword
-
-includelib msvcrt.lib
-includelib user32.lib
+GetAsyncKeyState proto, :dword
+CreateThread proto, :dword, :dword, :dword, :dword, :dword, :dword
 
 system proto C, :ptr sbyte, :vararg
 printf proto C :ptr sbyte, :vararg
@@ -40,6 +42,9 @@ globalSnakeLen dword ?
 ; 存储初始蛇头的位置
 globalInitialSnakeHeadX dword ?
 globalInitialSnakeHeadY dword ?
+
+; 蛇的移动方向
+globalMovementDirection dword ?
 
 ; 存储食物的位置
 globalFoodX dword ?
@@ -124,6 +129,7 @@ startGame proc
 go_on_game:
 	call drawMap
 	call drawSnake
+	call moveSnake
 
 	push 250
 	call Sleep
@@ -448,7 +454,178 @@ print_snake_end:
 
 	
 drawSnake endp
+
+
+
+
 ;	----------------------------------------------------------------------------------------------------------------------------------------
+moveSnake proc
+	;	给循环变量赋值
+	mov eax, dword ptr ds : [globalSnakeLen]
+	sub eax, 2
+	mov dword ptr ds : [i] , eax
+	jmp snake_cmp
+
+snake_dec:
+	mov eax, dword ptr ds : [i]
+	dec eax
+	mov dword ptr ds : [i] , eax
+
+snake_cmp:
+	mov eax, dword ptr ds : [i]
+	cmp eax, 0
+	jl snake_end
+
+	lea eax, dword ptr ds : [globalSnakeArr]
+	mov ecx, dword ptr ds : [i]
+	imul ecx, ecx, 8
+	add eax, ecx
+	mov ecx, dword ptr ds : [eax]
+	mov edx, dword ptr ds : [eax + 4]
+
+	;	放到 i + 1 的下标中
+	add eax, 8
+	mov dword ptr ds : [eax] , ecx
+	mov dword ptr ds : [eax + 4] , edx
+	jmp snake_dec
+
+snake_end:
+
+	;	确定蛇头位置
+	mov eax, dword ptr ds : [globalMovementDirection]
+	cmp eax, 1
+	je move_up
+	cmp eax, 2
+	je move_down
+	cmp eax, 3
+	je move_left
+	cmp eax, 4
+	je move_right
+
+	;	向上移动
+move_up:
+	lea eax, dword ptr ds : [globalSnakeArr]
+	mov ecx, dword ptr ds : [eax]
+	mov edx, dword ptr ds : [eax + 4]
+	dec ecx
+	mov dword ptr ds : [eax] , ecx
+	mov dword ptr ds : [eax + 4] , edx
+	jmp 	fun_end
+	;	向下移动
+move_down:
+	lea eax, dword ptr ds : [globalSnakeArr]
+	mov ecx, dword ptr ds : [eax]
+	mov edx, dword ptr ds : [eax + 4]
+	inc ecx
+	mov dword ptr ds : [eax] , ecx
+	mov dword ptr ds : [eax + 4] , edx
+	jmp 	fun_end
+	;	向左移动
+move_left:
+	lea eax, dword ptr ds : [globalSnakeArr]
+	mov ecx, dword ptr ds : [eax]
+	mov edx, dword ptr ds : [eax + 4]
+	dec edx
+	mov dword ptr ds : [eax] , ecx
+	mov dword ptr ds : [eax + 4] , edx
+	jmp 	fun_end
+	;	向右移动
+move_right:
+	lea eax, dword ptr ds : [globalSnakeArr]
+	mov ecx, dword ptr ds : [eax]
+	mov edx, dword ptr ds : [eax + 4]
+	inc edx
+	mov dword ptr ds : [eax] , ecx
+	mov dword ptr ds : [eax + 4] , edx
+	jmp 	fun_end
+
+fun_end:
+	nop
+
+	ret
+moveSnake endp
+
+
+
+
+
+;	----------------------------------------------------------------------------------------------------------------------------------------
+ judgeMovementDirection proc
+ back_while:
+	;	获取 w 键
+	push 87
+	call GetAsyncKeyState
+	and ax, 0ff00h				
+	cmp ax, 0
+	jne w_press
+
+	;	获取 s 键
+	push 83
+	call GetAsyncKeyState
+	and ax, 0ff00h
+	cmp ax, 0
+	jne s_press
+
+	;	获取 a 键
+	push 65
+	call GetAsyncKeyState
+	and ax, 0ff00h
+	cmp ax, 0
+	jne a_press
+
+	;	 d 键
+	push 68
+	call GetAsyncKeyState
+	and ax, 0ff00h
+	cmp ax, 0
+	jne d_press
+	jmp back_while
+
+	;	如果 w 键被按下
+w_press:
+	mov eax, dword ptr ds : [globalMovementDirection]
+	cmp eax, 2
+	je w_back
+	mov dword ptr ds : [globalMovementDirection] , 1
+w_back:
+	jmp back_while
+
+	;	如果 s 键被按下
+s_press:
+	mov eax, dword ptr ds : [globalMovementDirection]
+	cmp eax, 1
+	je s_back
+	mov dword ptr ds : [globalMovementDirection] , 2
+s_back:
+	jmp back_while
+
+	;	如果 a 键被按下
+a_press:
+	mov eax, dword ptr ds : [globalMovementDirection]
+	cmp eax, 4
+	je a_back
+	mov dword ptr ds : [globalMovementDirection] , 3
+a_back:
+	jmp back_while
+
+	;	如果 d 键被按下
+d_press:
+	mov eax, dword ptr ds : [globalMovementDirection]
+	cmp eax, 3
+	je d_back
+	mov dword ptr ds : [globalMovementDirection] , 4
+d_back:
+	jmp back_while
+
+	ret
+ judgeMovementDirection endp
+
+
+
+ ;	----------------------------------------------------------------------------------------------------------------------------------------
+
+
+
 endGame proc
 	; 打印提示信息
 	invoke printf, dword ptr offset endGameTip
@@ -495,6 +672,18 @@ gotoxyUtil endp
 
 ;	##################################################################################
 main proc
+
+	;	开辟第一个线程
+	push 0
+	push 0
+	push 0
+	lea eax, dword ptr ds : [judgeMovementDirection]
+	push eax
+	push 0
+	push 0
+	call CreateThread
+
+	;	第二个线程 (主线程)
 	call enterGame
 main endp
 end main
