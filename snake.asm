@@ -7,20 +7,21 @@ option casemap:none
 includelib msvcrt.lib
 includelib user32.lib
 
-ExitProcess proto, dwExitCode:dword
-Sleep proto, timeSpan:dword
+ExitProcess proto, :dword
+Sleep proto, :dword
 GetStdHandle proto, :dword
-SetConsoleCursorPosition proto hd:dword, pos:dword
+SetConsoleCursorPosition proto :dword, :dword
 GetAsyncKeyState proto, :dword
 CreateThread proto, :dword, :dword, :dword, :dword, :dword, :dword
 
 system proto C, :ptr sbyte, :vararg
 printf proto C :ptr sbyte, :vararg
 scanf proto C :ptr sbyte, :vararg
-memset proto C :ptr sbyte, char:dword, len:dword
+memset proto C :ptr sbyte, :dword, :dword
 time proto C :dword
 srand proto C :dword
 rand proto C :dword
+
 ;	##################################################################################
 
 .data
@@ -55,7 +56,7 @@ snakeBody byte "O", 0
 ;	showMainMenu()
 ;	需要打印的分割线、作者信息、操作指南
 dividingLine byte "-------------------------------------------------------------------", 0ah, 0
-authorInfo byte "author: LiJunLin", 0ah, 0
+authorInfo byte "作者: 李俊霖", 0ah, 0
 operationGuide byte "按 1 开始游戏", 0ah, "按 2 结束游戏", 0ah, "按 W 向上移动",  0ah, "按 S 向下移动", 0ah, "按 A 向左移动", 0ah, "按 D 向右移动", 0ah, 0
 
 ;	setWall()
@@ -75,6 +76,16 @@ errMsg byte "输入的编号不正确，请在 2s 之后重新输入", 0ah, 0
 ;	scanf 读取用户输入时需要的参数 %d
 paramater byte "%d", 0
 selection dword ?
+
+;	 judgeDetection()
+;	用来暂存蛇头坐标的 x, y
+ x dword ?
+ y dword ?
+
+
+ ;	die()
+ ;	输出死亡时的提示信息
+ dieTip byte "你死了, 游戏结束", 0ah, 0
 
 ;	endGame()
 ;	退出游戏的提示信息
@@ -130,6 +141,7 @@ go_on_game:
 	call drawMap
 	call drawSnake
 	call moveSnake
+	call judgeDetection
 
 	push 250
 	call Sleep
@@ -623,9 +635,72 @@ d_back:
 
 
  ;	----------------------------------------------------------------------------------------------------------------------------------------
+ judgeDetection proc
+	;	取出蛇头的 xy 坐标
+	lea eax, dword ptr ds : [globalSnakeArr]
+	mov ecx, dword ptr ds : [eax]
+	mov edx, dword ptr ds : [eax + 4]
+	mov dword ptr ds : [x] , ecx
+	mov dword ptr ds : [y] , edx
+
+	;	取得蛇头的内容
+	lea eax, dword ptr ds : [globalMapArr]
+	imul ecx, ecx, 25
+	add eax, ecx
+	add eax, edx
+	mov cl, byte ptr ds : [eax]
+
+	;	判断是否撞墙
+	cmp cl, 0bh
+	je snake_dead
+
+
+	;	判断是否吃到食物
+	cmp cl, 0ch
+	je snake_add_len
+
+	;	啥都没做
+	jmp fun_end
+
+snake_dead:
+	call die
+
+snake_add_len:
+	call addSnakeLen
+	call initMapData
+	call setWall
+	call setFoodPosition
+
+fun_end:
+	nop
+
+	ret
+ judgeDetection endp
 
 
 
+ ;	----------------------------------------------------------------------------------------------------------------------------------------
+ addSnakeLen proc
+	mov eax, dword ptr ds : [globalSnakeLen]
+	inc eax
+	mov dword ptr ds : [globalSnakeLen] , eax
+
+	ret
+ addSnakeLen endp
+
+ ;	----------------------------------------------------------------------------------------------------------------------------------------
+ die proc
+	call clearScreenUtil
+
+	invoke printf, dword ptr offset dieTip
+
+	call endGame
+
+	ret
+ die endp
+
+
+ ;	----------------------------------------------------------------------------------------------------------------------------------------
 endGame proc
 	; 打印提示信息
 	invoke printf, dword ptr offset endGameTip
