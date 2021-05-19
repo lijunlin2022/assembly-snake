@@ -1,4 +1,4 @@
-=#include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <windows.h>
 #include <time.h>
@@ -40,10 +40,10 @@ void drawMap();
 void drawSnake();
 void moveSnake();
 void judgeMovementDirection();
+void judgeDetection();
+void die();
+void addSnakeLen();
 
-void JudgeDetection();
-void AddSnakeLength();
-void Death();
 void clearScreenUtil();
 void gotoxyUtil(int pos);
 
@@ -103,7 +103,7 @@ void enterGame() {
 
 void showMainMenu() {
 	const char* dividingLine = "-------------------------------------------------------------------\n";
-	const char* authorInfo = "author: LiJunLin\n";
+	const char* authorInfo = "作者: 李俊霖\n";
 	const char* operationGuide = "按 1 开始游戏\n按 2 结束游戏\n按 W 向上移动\n按 S 向下移动\n按 A 向左移动\n按 D 向右移动\n";
 	__asm {
 		// 打印分割字符
@@ -160,10 +160,10 @@ void startGame() {
 		call drawMap
 		call drawSnake
 		call moveSnake
-		call JudgeDetection
+		call judgeDetection
 
 		push 250
-		call dword ptr ds : [Sleep]
+		call Sleep
 		jmp go_on_game
 	}
 }
@@ -256,7 +256,7 @@ void setFoodPosition() {
 		// 如果和墙重叠, 则回到开始位置, 重新生成随机数
 		je set_food_pos
 
-		// 如果和墙壁重叠, 则设置食物
+		// 如果没有和墙壁重叠, 在在该位置设置食物
 		mov byte ptr ds : [eax] , 0ch
 	}
 }
@@ -300,7 +300,8 @@ void setSnakePosition() {
 
 		mov cl, byte ptr ds : [eax]
 		cmp cl, 0xB
-		je set_snake_pos	// 如果和墙重叠, 则回到开始位置, 重新生成蛇头
+		// 如果和墙重叠, 则回到开始位置, 重新生成蛇头
+		je set_snake_pos
 
 		// 生成的蛇头满足要求, 则写入蛇的结构体
 		lea eax, dword ptr ds : [globalSnakeArr]
@@ -308,11 +309,9 @@ void setSnakePosition() {
 		imul ecx, ecx, 8
 		add eax, ecx
 
-		// 将 蛇头的 x 坐标写入结构体
 		mov ecx, dword ptr ds : [globalInitialSnakeHeadX]
 		mov dword ptr ds : [eax] , ecx
 
-		// 将蛇头的 y 坐标写入结构体
 		mov ecx, dword ptr ds : [globalInitialSnakeHeadY]
 		mov dword ptr ds : [eax + 4] , ecx
 
@@ -328,17 +327,18 @@ void generateRandomSnakeHead() {
 		call time
 		add esp, 4
 		// 设置随机数种子
-		add eax, 23								// 为了避免和食物的位置重叠，给随机数加上一个固定值
+		// 为了避免和食物的位置重叠，给蛇头的随机数加上一个固定值
+		add eax, 5
 		push eax
 		call srand
 		add esp, 4
-		// 取 x 的随机数坐标
+		// 设置蛇头 x 的随机数坐标
 		call rand
 		cdq
 		mov ecx, 25
 		idiv ecx
 		mov dword ptr ds : [globalInitialSnakeHeadX] , edx
-		// 取 y 的随机数坐标
+		// 设置蛇头 y 的随机数坐标
 		call rand
 		cdq
 		mov ecx, 25
@@ -362,17 +362,20 @@ void drawMap() {
 		// 双重循环打印 g_MapDataArr
 		mov dword ptr ds : [i] , 0
 		jmp first_cmp
-		first_inc :						// 第一个循环控制变量 ++ 的地方
+		
+	first_inc :
 		mov eax, dword ptr ds : [i]
 		inc eax
 		mov dword ptr ds : [i] , eax
-	first_cmp :						// 第一个循环控制变量作对比的地方
+		
+	first_cmp :
 		mov eax, dword ptr ds : [i]
 		cmp eax, 25
 		jge first_end
-		// 第二个循环							// 第一个循环的循环代码开始的地方
+		
 		mov dword ptr ds : [j] , 0
 		jmp second_cmp
+
 	second_inc :
 		mov eax, dword ptr ds : [j]
 		inc eax
@@ -381,8 +384,6 @@ void drawMap() {
 		mov eax, dword ptr ds : [j]
 		cmp eax, 25
 		jge second_end
-
-
 
 
 		lea eax, dword ptr ds : [globalMapArr]
@@ -405,7 +406,7 @@ void drawMap() {
 		add esp, 4
 		jmp second_inc
 
-			// 打印墙壁
+		// 打印墙壁
 	draw_wall :
 		mov eax, dword ptr ds : [wall]
 		push eax
@@ -413,14 +414,13 @@ void drawMap() {
 		add esp, 4
 		jmp second_inc
 
-			// 打印食物
+		// 打印食物
 	draw_food :
 		mov eax, dword ptr ds : [food]
 		push eax
 		call printf
 		add esp, 4
 		jmp second_inc
-
 
 
 
@@ -450,21 +450,23 @@ void drawSnake() {
 	print_snake_cmp :
 		mov eax, dword ptr ds : [i]
 		mov ecx, dword ptr ds : [globalSnakeLen]
-		cmp eax, ecx													// 如果画好的长度等于储存的贪吃蛇的长度, 则画图结束
+		// 如果画好的长度等于储存的贪吃蛇的长度, 则画图结束
+		cmp eax, ecx	
 		jge print_snake_end
 
-		// 执行代码
-		lea eax, dword ptr ds : [globalSnakeArr]		// 计算地址
+		// 开始画图
+		lea eax, dword ptr ds : [globalSnakeArr]	
 		mov ecx, dword ptr ds : [i]
 		imul ecx, ecx, 8
 		add eax, ecx
 
 		// 得到蛇的坐标, 拼接后调用 gotoxy
-		mov ecx, dword ptr ds : [eax]							// 取出 x
-		shl ecx, 16													// 左移 16 位
-		mov edx, dword ptr ds : [eax + 4]					// 取出 y
-		or ecx, edx													// 拼接完成
-		push ecx														// 设置光标位置
+		mov ecx, dword ptr ds : [eax]
+		// 左移 16 位, 用以将 x 和 y 两个 dword 的值拼接为 1 个 word
+		shl ecx, 16													
+		mov edx, dword ptr ds : [eax + 4]
+		or ecx, edx
+		push ecx
 		call gotoxyUtil
 		add esp, 4
 
@@ -483,7 +485,6 @@ void drawSnake() {
 void moveSnake() {
 	int i;
 	__asm {
-		// 给循环变量赋值
 		mov eax, dword ptr ds : [globalSnakeLen]
 		sub eax, 2
 		mov dword ptr ds : [i] , eax
@@ -528,8 +529,8 @@ void moveSnake() {
 		// 向上移动
 	move_up :
 		lea eax, dword ptr ds : [globalSnakeArr]
-		mov ecx, dword ptr ds : [eax]		// x
-		mov edx, dword ptr ds : [eax + 4]	// y
+		mov ecx, dword ptr ds : [eax]
+		mov edx, dword ptr ds : [eax + 4]
 		dec ecx
 		mov dword ptr ds : [eax] , ecx
 		mov dword ptr ds : [eax + 4] , edx
@@ -537,8 +538,8 @@ void moveSnake() {
 		// 向下移动
 	move_down :
 		lea eax, dword ptr ds : [globalSnakeArr]
-		mov ecx, dword ptr ds : [eax]		// x
-		mov edx, dword ptr ds : [eax + 4]	// y
+		mov ecx, dword ptr ds : [eax]
+		mov edx, dword ptr ds : [eax + 4]
 		inc ecx
 		mov dword ptr ds : [eax] , ecx
 		mov dword ptr ds : [eax + 4] , edx
@@ -546,8 +547,8 @@ void moveSnake() {
 		// 向左移动
 	move_left :
 		lea eax, dword ptr ds : [globalSnakeArr]
-		mov ecx, dword ptr ds : [eax]		// x
-		mov edx, dword ptr ds : [eax + 4]	// y
+		mov ecx, dword ptr ds : [eax]
+		mov edx, dword ptr ds : [eax + 4]
 		dec edx
 		mov dword ptr ds : [eax] , ecx
 		mov dword ptr ds : [eax + 4] , edx
@@ -555,8 +556,8 @@ void moveSnake() {
 		// 向右移动
 	move_right :
 		lea eax, dword ptr ds : [globalSnakeArr]
-		mov ecx, dword ptr ds : [eax]		// x
-		mov edx, dword ptr ds : [eax + 4]	// y
+		mov ecx, dword ptr ds : [eax]
+		mov edx, dword ptr ds : [eax + 4]
 		inc edx
 		mov dword ptr ds : [eax] , ecx
 		mov dword ptr ds : [eax + 4] , edx
@@ -574,8 +575,10 @@ void  judgeMovementDirection() {
 		// 获取 w 键
 		push 87
 		call GetAsyncKeyState
-		and ax, 0ff00h												// 与操作，获取第 15 位的值
-		cmp ax, 0														// 如果为 0 表示没有被按下
+		// 与操作，获取第 15 位的值
+		and ax, 0ff00h
+		// 如果为 0 表示没有被按下
+		cmp ax, 0
 		jne w_press
 
 		// 获取 s 键
@@ -603,7 +606,8 @@ void  judgeMovementDirection() {
 		// 如果 w 键被按下
 	w_press :
 		mov eax, dword ptr ds : [globalMovementDirection]
-		cmp eax, 2												// 当前移动方向是否向下
+		// 如果当前移动方向向下, 则忽略此次事件
+		cmp eax, 2
 		je w_back
 		mov dword ptr ds : [globalMovementDirection] , 1
 		w_back :
@@ -612,7 +616,8 @@ void  judgeMovementDirection() {
 		// 如果 s 键被按下
 	s_press :
 		mov eax, dword ptr ds : [globalMovementDirection]
-		cmp eax, 1										// 当前移动方向是否向上
+		// 如果当前移动方向向上, 则忽略此次事件
+		cmp eax, 1
 		je s_back
 		mov dword ptr ds : [globalMovementDirection] , 2
 		s_back :
@@ -621,7 +626,8 @@ void  judgeMovementDirection() {
 		// 如果 a 键被按下
 	a_press :
 		mov eax, dword ptr ds : [globalMovementDirection]
-		cmp eax, 4										// 当前移动方向是否向右
+		// 如果当前移动方向向右, 则忽略此次事件
+		cmp eax, 4
 		je a_back
 		mov dword ptr ds : [globalMovementDirection] , 3
 		a_back :
@@ -630,7 +636,8 @@ void  judgeMovementDirection() {
 		// 如果 d 键被按下
 	d_press :
 		mov eax, dword ptr ds : [globalMovementDirection]
-		cmp eax, 3									// 当前移动方向是否向左
+		// 如果当前移动方向向左, 则忽略此次事件
+		cmp eax, 3
 		je d_back
 		mov dword ptr ds : [globalMovementDirection] , 4
 		d_back :
@@ -639,14 +646,14 @@ void  judgeMovementDirection() {
 	}
 }
 
-void JudgeDetection() {
+void judgeDetection() {
 	int x;
 	int y;
 	__asm {
 		// 取出蛇头的 xy 坐标
 		lea eax, dword ptr ds : [globalSnakeArr]
-		mov ecx, dword ptr ds : [eax]	// x 的坐标
-		mov edx, dword ptr ds : [eax + 4]	// y 的坐标
+		mov ecx, dword ptr ds : [eax]
+		mov edx, dword ptr ds : [eax + 4]
 		mov dword ptr ds : [x] , ecx
 		mov dword ptr ds : [y] , edx
 
@@ -655,98 +662,54 @@ void JudgeDetection() {
 		imul ecx, ecx, 25
 		add eax, ecx
 		add eax, edx
-		mov cl, byte ptr ds : [eax]	// 从二维数组里面取指定下标值
-		cmp cl, 0xB	// 判断是否撞墙
+		// 从二维数组里面取指定下标值
+		mov cl, byte ptr ds : [eax]
+
+		// 判断是否撞墙
+		cmp cl, 0bh
 		je snake_dead
 
-		// 是否得分
-		cmp cl, 0xC	// 判断是否吃到食物
-		je snake_get_score
+
+		// 判断是否吃到食物
+		cmp cl, 0ch
+		je snake_add_len
 
 		// 啥都没做
-		jmp snake_get_score_end
+		jmp fun_end
 
-		snake_dead :
-		call Death
+	snake_dead :
+		call die
 
-	snake_get_score :
+	snake_add_len :
 
-		mov eax, dword ptr ds : [globalSnakeLen]
-		inc eax
-		mov dword ptr ds : [globalSnakeLen] , eax
-		call AddSnakeLength
+		call addSnakeLen
 		call initMapData
 		call setWall
 		call setFoodPosition
 
-	snake_get_score_end :
+	fun_end :
 		nop
 	}
 }
 
-void Death() {
-	const char* format1 = "你死了，游戏结束";
+void die() {
+	const char* dieTip = "你死了，游戏结束\n";
 	__asm {
 		call clearScreenUtil
-		mov eax, dword ptr ds : [format1]
+		mov eax, dword ptr ds : [dieTip]
 		push eax
 		call printf
 		add eax, 4
+
 		call endGame
 	}
 }
 
-void AddSnakeLength() {
+void addSnakeLen() {
 	__asm {
-		lea eax, dword ptr ds : [globalSnakeArr]
-		mov ecx, dword ptr ds : [globalSnakeLen]
-		dec ecx
-		imul ecx, ecx, 8
-		add eax, ecx
-		mov ecx, dword ptr ds : [eax]	// 取蛇尾的 x
-		mov edx, dword ptr ds : [eax + 4]	// 取蛇尾的 y
-		// 进行判断
-		push ebx
-		mov ebx, dword ptr ds : [globalMovementDirection]
-		cmp ebx, 1
-		je move_up
-		cmp ebx, 2
-		je move_down
-		cmp ebx, 3
-		je move_left
-		cmp ebx, 4
-		je move_right
-		// 向上移动
-	move_up :
-		inc ecx
-		add eax, 8
-		mov dword ptr ds : [eax] , ecx
-		mov dword ptr ds : [eax + 4] , edx
-		jmp snake_add_length_end
-		// 向下移动
-	move_down :
-		dec ecx
-		add eax, 8
-		mov dword ptr ds : [eax] , ecx
-		mov dword ptr ds : [eax + 4] , edx
-		jmp snake_add_length_end
-		// 向左移动
-	move_left :
-		inc edx
-		add eax, 8
-		mov dword ptr ds : [eax] , ecx
-		mov dword ptr ds : [eax + 4] , edx
-		jmp snake_add_length_end
-		// 向右移动
-	move_right :
-		dec edx
-		add eax, 8
-		mov dword ptr ds : [eax] , ecx
-		mov dword ptr ds : [eax + 4] , edx
-		jmp snake_add_length_end
-	snake_add_length_end :
-		pop ebx
-		nop
+		mov eax, dword ptr ds : [globalSnakeLen]
+		inc eax
+		mov dword ptr ds : [globalSnakeLen] , eax
 	}
 }
 
