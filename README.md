@@ -1,5 +1,7 @@
 # assembly-snake
 
+## 简介
+
 assembly-snake 包含三部分：
 
 * snake.cpp
@@ -8,6 +10,28 @@ assembly-snake 包含三部分：
   第二个版本，纯汇编编写
 * super-snake.asm
   第三个版本，纯汇编编写，支持单人游戏和双人游戏
+  
+其中, 在 VS 2019 上配置好运行 C++ 的环境, snake.cpp 可以直接运行
+
+配置好汇编环江, snake.asm 和 super-snake.asm 可以直接运行
+
+## 效果
+
+* snake.cpp 和 snake.asm 的效果如下：
+  
+  ![](./img/snake.jpg)
+  
+* super-snake.asm 的效果如下：
+
+  * 单人游戏
+  
+  ![](./img/single-play.jpg)
+  
+  * 双人游戏
+
+  ![](./img/double-play.jpg)
+  
+## 编写思路
   
 关于 assembly-snake.asm 的编写思路，可以查看：
 
@@ -22,6 +46,3 @@ assembly-snake 包含三部分：
 * [08. CreateThread 和 GetAsyncKeyState —— 开辟线程和获取键盘输入](http://layfolk.ltd/detail?id=29)
 * [09. 碰撞检测与总结](http://layfolk.ltd/detail?id=30)
 
-# 效果展示
-
-* snake.cpp
