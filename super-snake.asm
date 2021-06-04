@@ -250,7 +250,7 @@ double_play:
 	push 0
 	push 0
 	call CreateThread
-	jmp menu_end
+	jmp second_thread
 
 	; 单人游戏
 single_play:
@@ -259,6 +259,7 @@ single_play:
 	invoke printf, dword ptr offset dividingLine
 	invoke printf, dword ptr offset operationGuide
 
+second_thread:
 	push 0
 	push 0
 	push 0
@@ -1306,27 +1307,6 @@ gotoxyUtil endp
 
 ;	##################################################################################
 main proc
-
-	;call GetCurrentThreadId
-
-	;	开辟第一个线程
-	;push 0
-	;push 0
-	;push 0
-	;lea eax, dword ptr ds : [judgeMovementDirection]
-	;push eax
-	;push 0
-	;push 0
-	;call CreateThread
-
-	;push 0
-	;push 0
-	;push 0
-	;lea eax, dword ptr ds : [judgeMovementDirection_1]
-	;push eax
-	;push 0
-	;push 0
-	;call CreateThread
 
 	push -11
 	call GetStdHandle
