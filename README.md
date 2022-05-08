@@ -35,7 +35,7 @@ assembly-snake 包含三部分：
   
 关于 assembly-snake.asm 的编写思路，可以查看：
 
-[博客 rainforest](http://layfolk.ltd/notebookDetail?id=2)
+[语雀|李俊霖](https://www.yuque.com/lijunlin2022/mvald5/gufsod)
 
 ## 开源协议
 
