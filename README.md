@@ -1,8 +1,8 @@
-# assembly-snake
+# 北理工汇编大作业——汇编贪吃蛇
 
 ## 简介
 
-assembly-snake 包含三部分：
+assembly-snake（汇编贪吃蛇）包含三部分：
 
 * snake.cpp
   最初的成果，使用 C 嵌套汇编编写
@@ -33,11 +33,4 @@ assembly-snake 包含三部分：
   
 ## 编写思路
   
-关于 assembly-snake.asm 的编写思路，可以查看：
-
-[语雀|李俊霖](https://www.yuque.com/lijunlin2022/mvald5/gufsod)
-
-## 开源协议
-
-MIT LICENSE
-
+关于 assembly-snake.asm 的编写思路，可以查看：[Windows 下 32 位汇编贪吃蛇-李俊霖的网络日志](https://lijunlin2022.github.io/blog/bit-life/snake/index.html)
